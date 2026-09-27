@@ -917,6 +917,13 @@ class MainActivity : Activity() {
                     0f,
                     500L
                 ) {
+                    val intent = android.content.Intent(
+                        this,
+                        UnlockrService::class.java
+                    )
+
+                    stopService(intent)
+
                     serviceActive = false
                     shellActive = false
                     showRoot()
@@ -926,6 +933,17 @@ class MainActivity : Activity() {
                     100f,
                     1200L
                 ) {
+                    val intent = android.content.Intent(
+                        this,
+                        UnlockrService::class.java
+                    )
+
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+
                     serviceActive = true
                     shellActive = true
                     showRoot()
@@ -1733,6 +1751,17 @@ class MainActivity : Activity() {
                 }
 
                 "root" -> {
+                    val intent = android.content.Intent(
+                        this,
+                        UnlockrService::class.java
+                    )
+
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        startForegroundService(intent)
+                    } else {
+                        startService(intent)
+                    }
+
                     serviceActive = true
                     shellActive = true
 
@@ -1742,6 +1771,13 @@ class MainActivity : Activity() {
                 }
 
                 "stop" -> {
+                    val intent = android.content.Intent(
+                        this,
+                        UnlockrService::class.java
+                    )
+
+                    stopService(intent)
+
                     serviceActive = false
                     shellActive = false
 
