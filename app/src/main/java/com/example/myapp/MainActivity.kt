@@ -55,9 +55,13 @@ class MainActivity : Activity() {
         window.statusBarColor = black
         window.navigationBarColor = black
 
-        buildBase()
-
-        adbSetup()
+        try {
+            buildBase()
+            adbSetup()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showFatalError(e)
+        }
     }
 
     private fun buildBase() {
@@ -122,6 +126,58 @@ class MainActivity : Activity() {
         buildDrawer()
 
         setContentView(root)
+    }
+
+    private fun showFatalError(error: Throwable) {
+        content.removeAllViews()
+
+        val page = LinearLayout(this)
+        page.orientation = LinearLayout.VERTICAL
+        page.setPadding(
+            dp(20),
+            dp(20),
+            dp(20),
+            dp(20)
+        )
+
+        text(
+            page,
+            "unlockr failed to load",
+            20f,
+            white,
+            true
+        )
+
+        space(page, 12)
+
+        text(
+            page,
+            error.message ?: error.javaClass.simpleName,
+            12f,
+            gray
+        )
+
+        space(page, 20)
+
+        smallButton(
+            page,
+            "RETRY"
+        ) {
+            runCatching {
+                adbSetup()
+            }.onFailure {
+                it.printStackTrace()
+                toast("unlockr failed again")
+            }
+        }
+
+        content.addView(
+            page,
+            FrameLayout.LayoutParams(
+                -1,
+                -1
+            )
+        )
     }
 
     private fun buildDrawer() {
@@ -597,7 +653,12 @@ class MainActivity : Activity() {
             page,
             "skip"
         ) {
-            showRoot()
+            runCatching {
+                showRoot()
+            }.onFailure {
+                it.printStackTrace()
+                toast("unlockr failed to open")
+            }
         }
 
         scroll.addView(page)
