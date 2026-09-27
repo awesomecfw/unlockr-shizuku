@@ -1,2020 +1,1228 @@
 package com.example.myapp
 
 import android.app.Activity
-import android.content.Intent
-import android.content.pm.ApplicationInfo
-import android.content.pm.PackageManager
-import android.graphics.Color
-import android.graphics.Typeface
-import android.net.Uri
-import android.os.Bundle
-import android.provider.Settings
+import android.graphics.*
+import android.graphics.drawable.GradientDrawable
+import android.os.*
+import android.view.*
+import android.view.animation.DecelerateInterpolator
+import android.widget.*
 import android.text.InputType
-import android.view.Gravity
-import android.view.View
-import android.view.ViewGroup
-import android.view.Window
-import android.widget.EditText
-import android.widget.FrameLayout
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
-import android.widget.Toast
+import java.net.URL
+import kotlin.math.cos
+import kotlin.math.sin
 
 class MainActivity : Activity() {
 
-private val black = Color.rgb(0, 0, 0)
-private val white = Color.rgb(245, 245, 245)
-private val gray = Color.rgb(145, 145, 145)
-private val darkGray = Color.rgb(34, 34, 34)
+    private val black = Color.BLACK
+    private val white = Color.rgb(245, 245, 245)
+    private val gray = Color.rgb(102, 102, 102)
+    private val lightGray = Color.rgb(170, 170, 170)
+    private val border = Color.rgb(25, 25, 25)
+    private val dark = Color.rgb(8, 8, 8)
 
-private lateinit var root: FrameLayout
-private lateinit var page: LinearLayout
-private lateinit var drawer: LinearLayout
-private lateinit var overlay: View
+    private lateinit var root: FrameLayout
+    private lateinit var content: FrameLayout
+    private lateinit var drawer: LinearLayout
+    private lateinit var overlay: View
+    private lateinit var headerStatus: TextView
+    private lateinit var headerDot: View
 
-private val prefs by lazy {
-    getSharedPreferences("unlockr", MODE_PRIVATE)
-}
+    private var serviceActive = false
+    private var progress = 0f
 
-private var selectedPackage: String? = null
-private var selectedName: String? = null
-private var appFilter = "all"
+    private var ledColor = Color.BLACK
+    private var rainbowActive = false
+    private var rainbowAnimator: ValueAnimator? = null
 
-override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
+    private val handler = Handler(Looper.getMainLooper())
 
-    requestWindowFeature(Window.FEATURE_NO_TITLE)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
-    window.statusBarColor = black
-    window.navigationBarColor = black
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
 
-    buildBase()
+        window.statusBarColor = black
+        window.navigationBarColor = black
 
-    if (!prefs.getBoolean("adb_setup_done", false)) {
-        adbSetup()
-    } else {
-        apps()
-    }
-}
-
-private fun buildBase() {
-    root = FrameLayout(this)
-    root.setBackgroundColor(black)
-
-    page = LinearLayout(this)
-    page.orientation = LinearLayout.VERTICAL
-    page.setBackgroundColor(black)
-
-    root.addView(
-        page,
-        FrameLayout.LayoutParams(-1, -1)
-    )
-
-    overlay = View(this)
-    overlay.setBackgroundColor(Color.argb(155, 0, 0, 0))
-    overlay.visibility = View.GONE
-
-    overlay.setOnClickListener {
-        closeDrawer()
+        build()
+        showPage("root")
     }
 
-    root.addView(
-        overlay,
-        FrameLayout.LayoutParams(-1, -1)
-    )
+    private fun build() {
+        root = FrameLayout(this)
+        root.setBackgroundColor(black)
 
-    drawer = LinearLayout(this)
-    drawer.orientation = LinearLayout.VERTICAL
-    drawer.setBackgroundColor(Color.rgb(8, 8, 8))
-    drawer.setPadding(
-        dp(22),
-        dp(25),
-        dp(18),
-        dp(20)
-    )
-    drawer.visibility = View.GONE
+        val main = LinearLayout(this)
+        main.orientation = LinearLayout.VERTICAL
+        main.setBackgroundColor(black)
 
-    val drawerParams = FrameLayout.LayoutParams(
-        dp(285),
-        -1
-    )
-
-    drawerParams.gravity = Gravity.START
-
-    root.addView(
-        drawer,
-        drawerParams
-    )
-
-    setContentView(root)
-}
-
-private fun header() {
-    val bar = LinearLayout(this)
-
-    bar.orientation = LinearLayout.HORIZONTAL
-    bar.gravity = Gravity.CENTER_VERTICAL
-    bar.setPadding(
-        dp(16),
-        0,
-        dp(16),
-        0
-    )
-
-    val menu = TextView(this)
-
-    menu.text = "☰"
-    menu.textSize = 23f
-    menu.setTextColor(white)
-    menu.gravity = Gravity.CENTER
-    menu.typeface = mono()
-
-    menu.setOnClickListener {
-        openDrawer()
-    }
-
-    bar.addView(
-        menu,
-        LinearLayout.LayoutParams(
-            dp(42),
-            dp(58)
+        root.addView(
+            main,
+            FrameLayout.LayoutParams(-1, -1)
         )
-    )
 
-    val logo = LinearLayout(this)
-
-    logo.orientation = LinearLayout.HORIZONTAL
-    logo.gravity = Gravity.CENTER_VERTICAL
-
-    val unlock = TextView(this)
-
-    unlock.text = "unlock"
-    unlock.textSize = 20f
-    unlock.setTextColor(white)
-    unlock.typeface =
-        Typeface.create(
-            mono(),
-            Typeface.BOLD
-        )
-    unlock.letterSpacing = -0.05f
-
-    val r = TextView(this)
-
-    r.text = "r"
-    r.textSize = 20f
-    r.setTextColor(gray)
-    r.typeface =
-        Typeface.create(
-            mono(),
-            Typeface.BOLD
-        )
-    r.letterSpacing = -0.05f
-
-    logo.addView(unlock)
-    logo.addView(r)
-
-    bar.addView(
-        logo,
-        LinearLayout.LayoutParams(
-            0,
-            dp(58),
-            1f
-        )
-    )
-
-    val status = TextView(this)
-
-    status.text =
-        if (
-            prefs.getBoolean(
-                "adb_connected",
-                false
+        main.addView(
+            makeHeader(),
+            LinearLayout.LayoutParams(
+                -1,
+                dp(54)
             )
-        ) {
-            "connected"
-        } else {
-            "disconnected"
+        )
+
+        val divider = View(this)
+        divider.setBackgroundColor(border)
+
+        main.addView(
+            divider,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(1)
+            )
+        )
+
+        content = FrameLayout(this)
+        content.setBackgroundColor(black)
+
+        main.addView(
+            content,
+            LinearLayout.LayoutParams(
+                -1,
+                0,
+                1f
+            )
+        )
+
+        overlay = View(this)
+        overlay.setBackgroundColor(Color.argb(128, 0, 0, 0))
+        overlay.visibility = View.GONE
+        overlay.setOnClickListener {
+            closeDrawer()
         }
 
-    status.textSize = 11f
-    status.setTextColor(gray)
-    status.typeface = mono()
+        root.addView(
+            overlay,
+            FrameLayout.LayoutParams(-1, -1)
+        )
 
-    bar.addView(
-        status,
-        LinearLayout.LayoutParams(
+        drawer = LinearLayout(this)
+        drawer.orientation = LinearLayout.VERTICAL
+        drawer.setBackgroundColor(Color.rgb(5, 5, 5))
+        drawer.setPadding(
+            dp(10),
+            dp(16),
+            dp(10),
+            dp(16)
+        )
+
+        val drawerParams = FrameLayout.LayoutParams(
+            dp(245),
+            -1
+        )
+
+        drawerParams.gravity = Gravity.START
+        drawerParams.topMargin = dp(55)
+        drawer.translationX = -dp(260).toFloat()
+
+        root.addView(drawer, drawerParams)
+
+        setContentView(root)
+    }
+
+    private fun makeHeader(): View {
+        val bar = LinearLayout(this)
+        bar.orientation = LinearLayout.HORIZONTAL
+        bar.gravity = Gravity.CENTER_VERTICAL
+        bar.setPadding(
+            dp(16),
+            0,
+            dp(16),
+            0
+        )
+
+        val menu = TextView(this)
+        menu.text = "☰"
+        menu.textSize = 20f
+        menu.setTextColor(Color.rgb(170, 170, 170))
+        menu.gravity = Gravity.CENTER
+        menu.typeface = mono()
+
+        menu.setOnClickListener {
+            if (drawer.translationX < 0) {
+                openDrawer()
+            } else {
+                closeDrawer()
+            }
+        }
+
+        bar.addView(
+            menu,
+            LinearLayout.LayoutParams(
+                dp(28),
+                dp(28)
+            )
+        )
+
+        val logo = LinearLayout(this)
+        logo.orientation = LinearLayout.HORIZONTAL
+        logo.gravity = Gravity.CENTER_VERTICAL
+
+        val unlock = TextView(this)
+        unlock.text = "unlock"
+        unlock.textSize = 20f
+        unlock.setTextColor(white)
+        unlock.typeface = Typeface.create(
+            mono(),
+            Typeface.BOLD
+        )
+        unlock.letterSpacing = -0.05f
+
+        val r = TextView(this)
+        r.text = "r"
+        r.textSize = 20f
+        r.setTextColor(Color.rgb(102, 102, 102))
+        r.typeface = Typeface.create(
+            mono(),
+            Typeface.BOLD
+        )
+        r.letterSpacing = -0.05f
+
+        logo.addView(unlock)
+        logo.addView(r)
+
+        val logoParams = LinearLayout.LayoutParams(
             -2,
-            dp(58)
+            -1
         )
-    )
 
-    page.addView(
-        bar,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(58)
+        logoParams.leftMargin = dp(13)
+
+        bar.addView(
+            logo,
+            logoParams
         )
-    )
 
-    line(page)
-}
+        val spacer = Space(this)
 
-private fun adbSetup() {
-    page.removeAllViews()
-    header()
+        bar.addView(
+            spacer,
+            LinearLayout.LayoutParams(
+                0,
+                1,
+                1f
+            )
+        )
 
-    val scroll = ScrollView(this)
+        val dot = View(this)
+        dot.background = circleDrawable(Color.rgb(85, 85, 85))
+        headerDot = dot
 
-    val content = LinearLayout(this)
+        bar.addView(
+            dot,
+            LinearLayout.LayoutParams(
+                dp(6),
+                dp(6)
+            )
+        )
 
-    content.orientation =
-        LinearLayout.VERTICAL
+        val status = TextView(this)
+        status.text = "offline"
+        status.textSize = 11f
+        status.setTextColor(gray)
+        status.typeface = mono()
+        headerStatus = status
 
-    content.setPadding(
-        dp(20),
-        dp(22),
-        dp(20),
-        dp(30)
-    )
+        val statusParams = LinearLayout.LayoutParams(
+            -2,
+            -1
+        )
 
-    text(
-        content,
-        "wireless adb",
-        21f,
-        white,
-        true
-    )
+        statusParams.leftMargin = dp(6)
 
-    space(content, 7)
+        bar.addView(status, statusParams)
 
-    text(
-        content,
-        "connect unlockr to this device through wireless debugging.",
-        12f,
-        gray
-    )
+        return bar
+    }
 
-    space(content, 24)
+    private fun showPage(name: String) {
+        closeDrawer()
 
-    button(
-        content,
-        "OPEN DEVELOPER OPTIONS"
+        content.removeAllViews()
+
+        when (name) {
+            "root" -> rootPage()
+            "authorizations" -> authorizationPage()
+            "tools" -> toolsPage()
+            "terminal" -> terminalPage()
+            "settings" -> settingsPage()
+        }
+    }
+
+    private fun openDrawer() {
+        drawer.removeAllViews()
+
+        drawerItem(
+            "root",
+            true
+        ) {
+            showPage("root")
+        }
+
+        drawerItem(
+            "authorizations",
+            false
+        ) {
+            showPage("authorizations")
+        }
+
+        drawerItem(
+            "tools",
+            false
+        ) {
+            showPage("tools")
+        }
+
+        drawerItem(
+            "terminal",
+            false
+        ) {
+            showPage("terminal")
+        }
+
+        drawerItem(
+            "settings",
+            false
+        ) {
+            showPage("settings")
+        }
+
+        overlay.visibility = View.VISIBLE
+        overlay.alpha = 0f
+
+        overlay.animate()
+            .alpha(1f)
+            .setDuration(180)
+            .start()
+
+        drawer.animate()
+            .translationX(0f)
+            .setDuration(220)
+            .setInterpolator(
+                DecelerateInterpolator()
+            )
+            .start()
+    }
+
+    private fun closeDrawer() {
+        if (!::drawer.isInitialized) return
+
+        overlay.animate()
+            .alpha(0f)
+            .setDuration(150)
+            .withEndAction {
+                overlay.visibility = View.GONE
+            }
+            .start()
+
+        drawer.animate()
+            .translationX(-dp(260).toFloat())
+            .setDuration(180)
+            .setInterpolator(
+                DecelerateInterpolator()
+            )
+            .start()
+    }
+
+    private fun drawerItem(
+        label: String,
+        active: Boolean,
+        action: () -> Unit
     ) {
-        try {
-            startActivity(
-                Intent(
-                    Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS
+        val item = TextView(this)
+
+        item.text =
+            if (active) {
+                "> $label"
+            } else {
+                label
+            }
+
+        item.textSize = 13f
+        item.setTextColor(
+            if (active) white else gray
+        )
+        item.typeface = mono()
+        item.gravity = Gravity.CENTER_VERTICAL
+        item.setPadding(
+            dp(13),
+            0,
+            dp(13),
+            0
+        )
+
+        if (active) {
+            item.background =
+                solidDrawable(
+                    Color.rgb(11, 11, 11)
                 )
-            )
-        } catch (_: Exception) {
-            startActivity(
-                Intent(Settings.ACTION_SETTINGS)
-            )
         }
-    }
 
-    space(content, 20)
+        item.setOnClickListener {
+            action()
+        }
 
-    text(
-        content,
-        "device address",
-        11f,
-        gray,
-        true
-    )
-
-    space(content, 7)
-
-    val ip = field(
-        "192.168.1.100",
-        prefs.getString(
-            "adb_ip",
-            ""
-        ) ?: ""
-    )
-
-    content.addView(
-        ip,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(43)
-        )
-    )
-
-    space(content, 15)
-
-    text(
-        content,
-        "pairing port",
-        11f,
-        gray,
-        true
-    )
-
-    space(content, 7)
-
-    val pairingPort = field(
-        "37000",
-        prefs.getString(
-            "pairing_port",
-            ""
-        ) ?: ""
-    )
-
-    content.addView(
-        pairingPort,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(43)
-        )
-    )
-
-    space(content, 15)
-
-    text(
-        content,
-        "pairing code",
-        11f,
-        gray,
-        true
-    )
-
-    space(content, 7)
-
-    val pairingCode = field(
-        "123456",
-        prefs.getString(
-            "pairing_code",
-            ""
-        ) ?: ""
-    )
-
-    pairingCode.inputType =
-        InputType.TYPE_CLASS_NUMBER
-
-    content.addView(
-        pairingCode,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(43)
-        )
-    )
-
-    space(content, 15)
-
-    text(
-        content,
-        "adb port",
-        11f,
-        gray,
-        true
-    )
-
-    space(content, 7)
-
-    val adbPort = field(
-        "5555",
-        prefs.getString(
-            "adb_port",
-            ""
-        ) ?: ""
-    )
-
-    adbPort.inputType =
-        InputType.TYPE_CLASS_NUMBER
-
-    content.addView(
-        adbPort,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(43)
-        )
-    )
-
-    space(content, 20)
-
-    button(
-        content,
-        "SAVE CONNECTION"
-    ) {
-        saveAdb(
-            ip.text.toString(),
-            pairingPort.text.toString(),
-            pairingCode.text.toString(),
-            adbPort.text.toString()
-        )
-
-        Toast.makeText(
-            this,
-            "connection saved",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    space(content, 8)
-
-    button(
-        content,
-        "PAIR"
-    ) {
-        saveAdb(
-            ip.text.toString(),
-            pairingPort.text.toString(),
-            pairingCode.text.toString(),
-            adbPort.text.toString()
-        )
-
-        showPairCommands()
-    }
-
-    space(content, 8)
-
-    button(
-        content,
-        "CONNECT"
-    ) {
-        saveAdb(
-            ip.text.toString(),
-            pairingPort.text.toString(),
-            pairingCode.text.toString(),
-            adbPort.text.toString()
-        )
-
-        showConnectCommands()
-    }
-
-    space(content, 20)
-
-    val statusBox = bordered()
-
-    text(
-        statusBox,
-        "status",
-        11f,
-        gray,
-        true
-    )
-
-    space(statusBox, 6)
-
-    text(
-        statusBox,
-        if (
-            prefs.getBoolean(
-                "adb_connected",
-                false
+        drawer.addView(
+            item,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(40)
             )
-        ) {
-            "connected"
-        } else {
-            "not connected"
-        },
-        14f,
-        white
-    )
-
-    content.addView(
-        statusBox,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(75)
         )
-    )
+    }
 
-    space(content, 25)
+    /* ROOT */
 
-    smallButton(
-        content,
-        "skip"
-    ) {
-        prefs.edit()
-            .putBoolean(
-                "adb_setup_done",
-                true
+    private fun rootPage() {
+        val scroll = ScrollView(this)
+        scroll.setBackgroundColor(black)
+
+        val layout = LinearLayout(this)
+        layout.orientation = LinearLayout.VERTICAL
+        layout.gravity = Gravity.CENTER_HORIZONTAL
+
+        layout.setPadding(
+            dp(18),
+            dp(32),
+            dp(18),
+            dp(35)
+        )
+
+        val title = unlockrText(27f)
+
+        layout.addView(
+            title,
+            LinearLayout.LayoutParams(
+                -2,
+                dp(40)
             )
-            .apply()
-
-        apps()
-    }
-
-    scroll.addView(content)
-
-    page.addView(
-        scroll,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
         )
-    )
-}
 
-private fun saveAdb(
-    ip: String,
-    pairingPort: String,
-    pairingCode: String,
-    adbPort: String
-) {
-    prefs.edit()
-        .putString(
-            "adb_ip",
-            ip.trim()
-        )
-        .putString(
-            "pairing_port",
-            pairingPort.trim()
-        )
-        .putString(
-            "pairing_code",
-            pairingCode.trim()
-        )
-        .putString(
-            "adb_port",
-            adbPort.trim()
-        )
-        .apply()
-}
+        val titleMargin = title.layoutParams
+            as LinearLayout.LayoutParams
 
-private fun showPairCommands() {
-    val ip =
-        prefs.getString(
-            "adb_ip",
-            ""
-        ) ?: ""
+        titleMargin.bottomMargin = dp(30)
 
-    val port =
-        prefs.getString(
-            "pairing_port",
-            ""
-        ) ?: ""
+        val progressView = ProgressRing(this)
 
-    val code =
-        prefs.getString(
-            "pairing_code",
-            ""
-        ) ?: ""
-
-    page.removeAllViews()
-    header()
-
-    val content = LinearLayout(this)
-
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(20),
-        dp(20),
-        dp(20),
-        dp(30)
-    )
-
-    text(
-        content,
-        "pair device",
-        20f,
-        white,
-        true
-    )
-
-    space(content, 10)
-
-    text(
-        content,
-        "use the command below with adb.",
-        12f,
-        gray
-    )
-
-    space(content, 20)
-
-    terminalBox(
-        content,
-        "> adb pair $ip:$port\n" +
-        "Enter pairing code: $code"
-    )
-
-    space(content, 18)
-
-    text(
-        content,
-        "after adb reports successful pairing, use CONNECT.",
-        11f,
-        gray
-    )
-
-    space(content, 20)
-
-    button(
-        content,
-        "CONNECT"
-    ) {
-        showConnectCommands()
-    }
-
-    space(content, 8)
-
-    button(
-        content,
-        "BACK"
-    ) {
-        adbSetup()
-    }
-
-    page.addView(
-        content,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
-        )
-    )
-}
-
-private fun showConnectCommands() {
-    val ip =
-        prefs.getString(
-            "adb_ip",
-            ""
-        ) ?: ""
-
-    val port =
-        prefs.getString(
-            "adb_port",
-            ""
-        ) ?: ""
-
-    page.removeAllViews()
-    header()
-
-    val content = LinearLayout(this)
-
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(20),
-        dp(20),
-        dp(20),
-        dp(30)
-    )
-
-    text(
-        content,
-        "connect",
-        20f,
-        white,
-        true
-    )
-
-    space(content, 10)
-
-    terminalBox(
-        content,
-        "> adb connect $ip:$port\n" +
-        "> waiting for connection..."
-    )
-
-    space(content, 20)
-
-    text(
-        content,
-        "unlockr cannot claim a connection until adb actually reports one.",
-        11f,
-        gray
-    )
-
-    space(content, 20)
-
-    button(
-        content,
-        "MARK CONNECTED"
-    ) {
-        prefs.edit()
-            .putBoolean(
-                "adb_connected",
-                true
+        layout.addView(
+            progressView,
+            LinearLayout.LayoutParams(
+                dp(150),
+                dp(150)
             )
-            .putBoolean(
-                "adb_setup_done",
-                true
+        )
+
+        val ringParams =
+            progressView.layoutParams
+                as LinearLayout.LayoutParams
+
+        ringParams.bottomMargin = dp(27)
+
+        val rootButton = TextView(this)
+
+        rootButton.text =
+            if (serviceActive) "STOP"
+            else "ROOT"
+
+        rootButton.textSize = 12f
+        rootButton.setTextColor(black)
+        rootButton.typeface =
+            Typeface.create(
+                mono(),
+                Typeface.BOLD
             )
-            .apply()
+        rootButton.gravity = Gravity.CENTER
+        rootButton.background =
+            solidDrawable(white)
 
-        Toast.makeText(
-            this,
-            "adb state saved",
-            Toast.LENGTH_SHORT
-        ).show()
-
-        apps()
-    }
-
-    space(content, 8)
-
-    button(
-        content,
-        "BACK"
-    ) {
-        adbSetup()
-    }
-
-    page.addView(
-        content,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
-        )
-    )
-}
-
-private fun apps() {
-    page.removeAllViews()
-    header()
-
-    val scroll = ScrollView(this)
-
-    val content = LinearLayout(this)
-
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(16),
-        dp(18),
-        dp(16),
-        dp(30)
-    )
-
-    val searchRow = LinearLayout(this)
-
-    searchRow.orientation =
-        LinearLayout.HORIZONTAL
-
-    searchRow.gravity =
-        Gravity.CENTER_VERTICAL
-
-    val searchBox = bordered()
-
-    searchBox.setPadding(
-        0,
-        0,
-        0,
-        0
-    )
-
-    val search = EditText(this)
-
-    search.hint = "search apps..."
-    search.setHintTextColor(gray)
-    search.setTextColor(white)
-    search.textSize = 13f
-    search.typeface = mono()
-    search.setSingleLine(true)
-
-    search.setPadding(
-        dp(12),
-        0,
-        dp(12),
-        0
-    )
-
-    search.background = null
-
-    searchBox.addView(
-        search,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(42)
-        )
-    )
-
-    searchRow.addView(
-        searchBox,
-        LinearLayout.LayoutParams(
-            0,
-            dp(44),
-            1f
-        )
-    )
-
-    spaceHorizontal(
-        searchRow,
-        7
-    )
-
-    val filter =
-        smallOutlineButton(
-            filterLabel()
+        layout.addView(
+            rootButton,
+            LinearLayout.LayoutParams(
+                dp(150),
+                dp(42)
+            )
         )
 
-    searchRow.addView(
-        filter,
-        LinearLayout.LayoutParams(
-            dp(78),
-            dp(44)
-        )
-    )
+        val status = TextView(this)
 
-    content.addView(
-        searchRow,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(44)
-        )
-    )
-
-    space(content, 16)
-
-    val list = LinearLayout(this)
-
-    list.orientation =
-        LinearLayout.VERTICAL
-
-    content.addView(list)
-
-    filter.setOnClickListener {
-        appFilter =
-            when (appFilter) {
-                "all" -> "games"
-                "games" -> "patched"
-                else -> "all"
+        status.text =
+            if (serviceActive) {
+                "service active"
+            } else {
+                "service inactive"
             }
 
-        filter.text =
-            filterLabel()
-
-        loadApps(
-            list,
-            search.text.toString()
+        status.textSize = 11f
+        status.setTextColor(
+            if (serviceActive) lightGray else Color.rgb(
+                85,
+                85,
+                85
+            )
         )
-    }
+        status.gravity = Gravity.CENTER
+        status.typeface = mono()
+        status.setPadding(
+            0,
+            dp(18),
+            0,
+            0
+        )
 
-    loadApps(
-        list,
-        ""
-    )
+        layout.addView(
+            status,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(45)
+            )
+        )
 
-    search.addTextChangedListener(
-        object : android.text.TextWatcher {
+        val info = LinearLayout(this)
+        info.orientation = LinearLayout.VERTICAL
 
-            override fun beforeTextChanged(
-                s: CharSequence?,
-                start: Int,
-                count: Int,
-                after: Int
-            ) {
-            }
+        val infoParams = LinearLayout.LayoutParams(
+            -1,
+            -2
+        )
 
-            override fun onTextChanged(
-                s: CharSequence?,
-                start: Int,
-                before: Int,
-                count: Int
-            ) {
-                loadApps(
-                    list,
-                    s?.toString() ?: ""
+        infoParams.topMargin = dp(45)
+
+        layout.addView(info, infoParams)
+
+        divider(info)
+
+        val deviceTitle = TextView(this)
+        deviceTitle.text = "DEVICE"
+        deviceTitle.textSize = 10f
+        deviceTitle.setTextColor(gray)
+        deviceTitle.typeface = mono()
+
+        info.addView(
+            deviceTitle,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(22)
+            )
+        )
+
+        deviceRow(
+            info,
+            "model",
+            android.os.Build.MODEL
+        )
+
+        deviceRow(
+            info,
+            "android",
+            "Android " +
+                    android.os.Build.VERSION.RELEASE
+        )
+
+        val serviceValue = deviceRow(
+            info,
+            "unlockr",
+            if (serviceActive) "active" else "inactive"
+        )
+
+        val authValue = deviceRow(
+            info,
+            "authorization",
+            "ready"
+        )
+
+        val shellValue = deviceRow(
+            info,
+            "shell",
+            if (serviceActive) "active" else "inactive"
+        )
+
+        rootButton.setOnClickListener {
+            if (serviceActive) {
+                serviceActive = false
+                progress = 0f
+
+                progressView.animateTo(0f)
+
+                rootButton.text = "ROOT"
+                status.text = "service inactive"
+                status.setTextColor(
+                    Color.rgb(85, 85, 85)
                 )
+
+                headerStatus.text = "offline"
+                headerDot.background =
+                    circleDrawable(
+                        Color.rgb(85, 85, 85)
+                    )
+
+                updateDeviceText(
+                    serviceValue,
+                    "inactive"
+                )
+
+                updateDeviceText(
+                    shellValue,
+                    "inactive"
+                )
+
+                terminalWrite(
+                    "unlockr service stopped"
+                )
+
+                toast("service stopped")
+
+                return@setOnClickListener
             }
 
-            override fun afterTextChanged(
-                s: android.text.Editable?
-            ) {
-            }
-        }
-    )
+            rootButton.isEnabled = false
+            rootButton.alpha = .5f
+            rootButton.text = "STARTING"
 
-    scroll.addView(content)
+            status.text =
+                "starting unlockr service..."
 
-    page.addView(
-        scroll,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
-        )
-    )
-}
+            status.setTextColor(
+                Color.rgb(85, 85, 85)
+            )
 
-private fun filterLabel(): String {
-    return when (appFilter) {
-        "games" -> "GAMES"
-        "patched" -> "PATCHED"
-        else -> "ALL"
-    }
-}
+            progressView.animateTo(0f)
 
-private fun isGame(
-    info: ApplicationInfo
-): Boolean {
-    if (
-        android.os.Build.VERSION.SDK_INT >= 26
-    ) {
-        if (
-            info.category ==
-            ApplicationInfo.CATEGORY_GAME
-        ) {
-            return true
-        }
+            val steps = arrayOf(
+                12f to "initializing service...",
+                25f to "preparing privileged bridge...",
+                41f to "starting binder service...",
+                57f to "registering authorization manager...",
+                72f to "starting shell interface...",
+                86f to "finalizing service...",
+                100f to "unlockr service active"
+            )
 
-        if (
-            info.flags and
-            ApplicationInfo.FLAG_IS_GAME != 0
-        ) {
-            return true
-        }
-    }
+            var index = 0
 
-    return false
-}
+            val timer = object : Runnable {
+                override fun run() {
+                    if (index >= steps.size) {
+                        serviceActive = true
 
-private fun loadApps(
-    list: LinearLayout,
-    query: String
-) {
-    list.removeAllViews()
+                        rootButton.isEnabled = true
+                        rootButton.alpha = 1f
+                        rootButton.text = "STOP"
 
-    val pm = packageManager
+                        status.text =
+                            "service active"
 
-    val installed =
-        pm.getInstalledApplications(
-            PackageManager.GET_META_DATA
-        )
-
-    val apps =
-        installed
-            .filter {
-                it.packageName != packageName &&
-                pm.getLaunchIntentForPackage(
-                    it.packageName
-                ) != null
-            }
-            .filter {
-                when (appFilter) {
-                    "games" ->
-                        isGame(it)
-
-                    "patched" ->
-                        prefs.getBoolean(
-                            "patched_${it.packageName}",
-                            false
+                        status.setTextColor(
+                            lightGray
                         )
 
-                    else ->
-                        true
-                }
-            }
-            .sortedBy {
-                pm.getApplicationLabel(it)
-                    .toString()
-                    .lowercase()
-            }
+                        headerStatus.text =
+                            "connected"
 
-    val filtered =
-        apps.filter {
-            val name =
-                pm.getApplicationLabel(it)
-                    .toString()
+                        headerDot.background =
+                            circleDrawable(white)
 
-            name.contains(
-                query,
-                true
-            ) ||
-            it.packageName.contains(
-                query,
-                true
-            )
-        }
+                        updateDeviceText(
+                            serviceValue,
+                            "active"
+                        )
 
-    if (filtered.isEmpty()) {
-        text(
-            list,
-            when (appFilter) {
-                "games" ->
-                    "no games found"
+                        updateDeviceText(
+                            shellValue,
+                            "active"
+                        )
 
-                "patched" ->
-                    "no patched apps"
+                        terminalWrite(
+                            "unlockr service started"
+                        )
 
-                else ->
-                    "no apps found"
-            },
-            13f,
-            gray
-        )
+                        terminalWrite(
+                            "authorization manager ready"
+                        )
 
-        return
-    }
+                        terminalWrite(
+                            "shell interface ready"
+                        )
 
-    for (info in filtered) {
-        appRow(
-            list,
-            info
-        )
-    }
-}
+                        toast(
+                            "unlockr service active"
+                        )
 
-private fun appRow(
-    list: LinearLayout,
-    info: ApplicationInfo
-) {
-    val pm = packageManager
+                        return
+                    }
 
-    val name =
-        pm.getApplicationLabel(info)
-            .toString()
+                    val step = steps[index]
 
-    val pkg =
-        info.packageName
-
-    val row = LinearLayout(this)
-
-    row.orientation =
-        LinearLayout.VERTICAL
-
-    row.setPadding(
-        0,
-        dp(12),
-        0,
-        dp(12)
-    )
-
-    val top = LinearLayout(this)
-
-    top.orientation =
-        LinearLayout.HORIZONTAL
-
-    top.gravity =
-        Gravity.CENTER_VERTICAL
-
-    val names = LinearLayout(this)
-
-    names.orientation =
-        LinearLayout.VERTICAL
-
-    text(
-        names,
-        name,
-        14f,
-        white,
-        true
-    )
-
-    text(
-        names,
-        pkg,
-        10f,
-        gray
-    )
-
-    top.addView(
-        names,
-        LinearLayout.LayoutParams(
-            0,
-            -2,
-            1f
-        )
-    )
-
-    val open =
-        smallOutlineButton(
-            "OPEN"
-        )
-
-    open.setOnClickListener {
-        openPackage(pkg)
-    }
-
-    top.addView(
-        open,
-        LinearLayout.LayoutParams(
-            dp(62),
-            dp(34)
-        )
-    )
-
-    spaceHorizontal(
-        top,
-        6
-    )
-
-    val settings =
-        smallOutlineButton(
-            "SETTINGS"
-        )
-
-    settings.setOnClickListener {
-        appSettings(
-            name,
-            pkg
-        )
-    }
-
-    top.addView(
-        settings,
-        LinearLayout.LayoutParams(
-            dp(75),
-            dp(34)
-        )
-    )
-
-    row.addView(top)
-
-    space(
-        row,
-        8
-    )
-
-    val patched =
-        prefs.getBoolean(
-            "patched_$pkg",
-            false
-        )
-
-    val patch =
-        smallOutlineButton(
-            if (patched) {
-                "PATCHED"
-            } else {
-                "PATCH"
-            }
-        )
-
-    patch.setOnClickListener {
-        if (!patched) {
-            patchTerminal(
-                name,
-                pkg
-            )
-        } else {
-            patchedApp(
-                name,
-                pkg
-            )
-        }
-    }
-
-    row.addView(
-        patch,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(34)
-        )
-    )
-
-    line(row)
-
-    list.addView(row)
-}
-
-private fun appSettings(
-    name: String,
-    pkg: String
-) {
-    selectedPackage = pkg
-    selectedName = name
-
-    page.removeAllViews()
-    header()
-
-    val scroll = ScrollView(this)
-
-    val content = LinearLayout(this)
-
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(20),
-        dp(20),
-        dp(20),
-        dp(30)
-    )
-
-    text(
-        content,
-        "app settings",
-        20f,
-        white,
-        true
-    )
-
-    space(content, 6)
-
-    text(
-        content,
-        name,
-        15f,
-        white
-    )
-
-    text(
-        content,
-        pkg,
-        11f,
-        gray
-    )
-
-    space(content, 25)
-
-    settingAction(
-        content,
-        "OPEN"
-    ) {
-        openPackage(pkg)
-    }
-
-    settingAction(
-        content,
-        "FORCE STOP"
-    ) {
-        openSystemAppInfo(pkg)
-    }
-
-    settingAction(
-        content,
-        "APP INFO"
-    ) {
-        openSystemAppInfo(pkg)
-    }
-
-    settingAction(
-        content,
-        "UNINSTALL"
-    ) {
-        uninstallPackage(pkg)
-    }
-
-    space(content, 20)
-
-    text(
-        content,
-        "package",
-        11f,
-        gray,
-        true
-    )
-
-    space(content, 7)
-
-    text(
-        content,
-        pkg,
-        13f,
-        white
-    )
-
-    scroll.addView(content)
-
-    page.addView(
-        scroll,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
-        )
-    )
-}
-
-private fun patchTerminal(
-    name: String,
-    pkg: String
-) {
-    page.removeAllViews()
-    header()
-
-    val scroll = ScrollView(this)
-
-    val content = LinearLayout(this)
-
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(16),
-        dp(18),
-        dp(16),
-        dp(30)
-    )
-
-    text(
-        content,
-        "patch",
-        20f,
-        white,
-        true
-    )
-
-    space(content, 7)
-
-    text(
-        content,
-        name,
-        13f,
-        gray
-    )
-
-    space(content, 18)
-
-    val terminal = bordered()
-
-    val output = TextView(this)
-
-    output.text =
-        "> unlockr patcher\n" +
-        "> selected: $name\n" +
-        "> package: $pkg\n" +
-        "> checking adb...\n" +
-        "> preparing patch environment...\n" +
-        "> ready\n"
-
-    output.textSize = 12f
-    output.setTextColor(white)
-    output.typeface = mono()
-
-    output.setPadding(
-        dp(14),
-        dp(14),
-        dp(14),
-        dp(14)
-    )
-
-    terminal.addView(
-        output,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(260)
-        )
-    )
-
-    content.addView(terminal)
-
-    space(content, 18)
-
-    button(
-        content,
-        "START PATCH"
-    ) {
-        runPatchDemo(
-            output,
-            name,
-            pkg
-        )
-    }
-
-    space(content, 8)
-
-    button(
-        content,
-        "CANCEL"
-    ) {
-        apps()
-    }
-
-    scroll.addView(content)
-
-    page.addView(
-        scroll,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
-        )
-    )
-}
-
-private fun runPatchDemo(
-    output: TextView,
-    name: String,
-    pkg: String
-) {
-    val lines =
-        arrayOf(
-            "> locating apk...",
-            "> reading package...",
-            "> checking architecture...",
-            "> preparing patched build...",
-            "> rebuilding package...",
-            "> signing patched package...",
-            "> installing patched package...",
-            "> patch complete"
-        )
-
-    var index = 0
-
-    output.text =
-        "> unlockr patcher\n" +
-        "> selected: $name\n" +
-        "> package: $pkg\n"
-
-    val handler =
-        android.os.Handler(
-            android.os.Looper.getMainLooper()
-        )
-
-    val runnable =
-        object : Runnable {
-
-            override fun run() {
-                if (
-                    index <
-                    lines.size
-                ) {
-                    output.append(
-                        lines[index] +
-                        "\n"
+                    progressView.animateTo(
+                        step.first
                     )
+
+                    status.text = step.second
 
                     index++
 
                     handler.postDelayed(
                         this,
-                        550
+                        280
                     )
-                } else {
-                    prefs.edit()
-                        .putBoolean(
-                            "patched_$pkg",
-                            true
-                        )
-                        .apply()
-
-                    Toast.makeText(
-                        this@MainActivity,
-                        "patch finished",
-                        Toast.LENGTH_SHORT
-                    ).show()
                 }
             }
+
+            handler.post(timer)
         }
 
-    handler.post(runnable)
-}
-
-private fun patched() {
-    page.removeAllViews()
-    header()
-
-    val scroll = ScrollView(this)
-
-    val content = LinearLayout(this)
-
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(16),
-        dp(18),
-        dp(16),
-        dp(30)
-    )
-
-    text(
-        content,
-        "patched",
-        20f,
-        white,
-        true
-    )
-
-    space(content, 5)
-
-    text(
-        content,
-        "patched apps tracked by unlockr",
-        11f,
-        gray
-    )
-
-    space(content, 18)
-
-    val pm = packageManager
-
-    val patched =
-        prefs.all.keys
-            .filter {
-                it.startsWith(
-                    "patched_"
-                )
-            }
-            .map {
-                it.removePrefix(
-                    "patched_"
-                )
-            }
-
-    if (patched.isEmpty()) {
-        text(
-            content,
-            "no patched apps",
-            13f,
-            gray
-        )
-    } else {
-        for (pkg in patched) {
-            try {
-                val info =
-                    pm.getApplicationInfo(
-                        pkg,
-                        0
-                    )
-
-                val name =
-                    pm.getApplicationLabel(
-                        info
-                    ).toString()
-
-                val row =
-                    LinearLayout(this)
-
-                row.orientation =
-                    LinearLayout.VERTICAL
-
-                row.setPadding(
-                    0,
-                    dp(12),
-                    0,
-                    dp(12)
-                )
-
-                val top =
-                    LinearLayout(this)
-
-                top.orientation =
-                    LinearLayout.HORIZONTAL
-
-                top.gravity =
-                    Gravity.CENTER_VERTICAL
-
-                val names =
-                    LinearLayout(this)
-
-                names.orientation =
-                    LinearLayout.VERTICAL
-
-                text(
-                    names,
-                    name,
-                    14f,
-                    white,
-                    true
-                )
-
-                text(
-                    names,
-                    pkg,
-                    10f,
-                    gray
-                )
-
-                top.addView(
-                    names,
-                    LinearLayout.LayoutParams(
-                        0,
-                        -2,
-                        1f
-                    )
-                )
-
-                val init =
-                    smallOutlineButton(
-                        "INIT"
-                    )
-
-                init.setOnClickListener {
-                    Toast.makeText(
-                        this,
-                        "frida init: $name",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-
-                top.addView(
-                    init,
-                    LinearLayout.LayoutParams(
-                        dp(52),
-                        dp(34)
-                    )
-                )
-
-                spaceHorizontal(
-                    top,
-                    5
-                )
-
-                val mods =
-                    smallOutlineButton(
-                        "MODS"
-                    )
-
-                mods.setOnClickListener {
-                    selectedPackage = pkg
-                    selectedName = name
-                    mods(name)
-                }
-
-                top.addView(
-                    mods,
-                    LinearLayout.LayoutParams(
-                        dp(57),
-                        dp(34)
-                    )
-                )
-
-                spaceHorizontal(
-                    top,
-                    5
-                )
-
-                val open =
-                    smallOutlineButton(
-                        "OPEN"
-                    )
-
-                open.setOnClickListener {
-                    openPackage(pkg)
-                }
-
-                top.addView(
-                    open,
-                    LinearLayout.LayoutParams(
-                        dp(57),
-                        dp(34)
-                    )
-                )
-
-                row.addView(top)
-
-                space(row, 7)
-
-                val settings =
-                    smallOutlineButton(
-                        "SETTINGS"
-                    )
-
-                settings.setOnClickListener {
-                    appSettings(
-                        name,
-                        pkg
-                    )
-                }
-
-                row.addView(
-                    settings,
-                    LinearLayout.LayoutParams(
-                        -1,
-                        dp(34)
-                    )
-                )
-
-                content.addView(row)
-
-                line(content)
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    scroll.addView(content)
-
-    page.addView(
-        scroll,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
-        )
-    )
-}
-
-private fun patchedApp(
-    name: String,
-    pkg: String
-) {
-    page.removeAllViews()
-    header()
-
-    val content = LinearLayout(this)
-
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(20),
-        dp(20),
-        dp(20),
-        dp(30)
-    )
-
-    text(
-        content,
-        name,
-        20f,
-        white,
-        true
-    )
-
-    text(
-        content,
-        pkg,
-        11f,
-        gray
-    )
-
-    space(content, 25)
-
-    text(
-        content,
-        "status",
-        11f,
-        gray,
-        true
-    )
-
-    space(content, 6)
-
-    text(
-        content,
-        "patched",
-        14f,
-        white
-    )
-
-    space(content, 22)
-
-    button(
-        content,
-        "INIT"
-    ) {
-        Toast.makeText(
-            this,
-            "frida init: $name",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-
-    space(content, 8)
-
-    button(
-        content,
-        "MODS"
-    ) {
-        selectedPackage = pkg
-        selectedName = name
-        mods(name)
-    }
-
-    space(content, 8)
-
-    button(
-        content,
-        "OPEN"
-    ) {
-        openPackage(pkg)
-    }
-
-    space(content, 8)
-
-    button(
-        content,
-        "OPEN SETTINGS"
-    ) {
-        appSettings(
-            name,
-            pkg
-        )
-    }
-
-    page.addView(
-        content,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
-        )
-    )
-}
-
-private fun mods(
-    appName: String = ""
-) {
-    page.removeAllViews()
-    header()
-
-    val scroll = ScrollView(this)
-
-    val content = LinearLayout(this)
-
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(20),
-        dp(20),
-        dp(20),
-        dp(30)
-    )
-
-    text(
-        content,
-        "mods",
-        20f,
-        white,
-        true
-    )
-
-    if (appName.isNotEmpty()) {
-        space(content, 5)
-
-        text(
-            content,
-            appName,
-            12f,
-            gray
-        )
-    }
-
-    space(content, 22)
-
-    button(
-        content,
-        "IMPORT MOD"
-    ) {
-        val intent =
-            Intent(
-                Intent.ACTION_OPEN_DOCUMENT
+        scroll.addView(
+            layout,
+            LinearLayout.LayoutParams(
+                -1,
+                -2
             )
-
-        intent.type =
-            "text/javascript"
-
-        intent.addCategory(
-            Intent.CATEGORY_OPENABLE
         )
 
-        startActivityForResult(
-            intent,
-            42
+        content.addView(
+            scroll,
+            FrameLayout.LayoutParams(
+                -1,
+                -1
+            )
         )
     }
 
-    space(content, 18)
+    private fun unlockrText(
+        size: Float
+    ): LinearLayout {
+        val box = LinearLayout(this)
+        box.orientation = LinearLayout.HORIZONTAL
 
-    text(
-        content,
-        "loaded mods",
-        11f,
-        gray,
-        true
-    )
+        val unlock = TextView(this)
+        unlock.text = "unlock"
+        unlock.textSize = size
+        unlock.setTextColor(white)
+        unlock.typeface =
+            Typeface.create(
+                mono(),
+                Typeface.BOLD
+            )
+        unlock.letterSpacing = -0.07f
 
-    space(content, 8)
-
-    text(
-        content,
-        "no mods loaded",
-        13f,
-        gray
-    )
-
-    scroll.addView(content)
-
-    page.addView(
-        scroll,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
+        val r = TextView(this)
+        r.text = "r"
+        r.textSize = size
+        r.setTextColor(
+            Color.rgb(102, 102, 102)
         )
-    )
-}
+        r.typeface =
+            Typeface.create(
+                mono(),
+                Typeface.BOLD
+            )
+        r.letterSpacing = -0.07f
 
-private fun terminal() {
-    page.removeAllViews()
-    header()
+        box.addView(unlock)
+        box.addView(r)
 
-    val content = LinearLayout(this)
+        return box
+    }
 
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(16),
-        dp(18),
-        dp(16),
-        dp(30)
-    )
-
-    text(
-        content,
-        "terminal",
-        20f,
-        white,
-        true
-    )
-
-    space(content, 15)
-
-    terminalBox(
-        content,
-        "> unlockr terminal\n" +
-        "> android environment\n" +
-        "> ready\n\n" +
-        "$ "
-    )
-
-    page.addView(
-        content,
-        LinearLayout.LayoutParams(
-            -1,
-            0,
-            1f
-        )
-    )
-}
-
-private fun device() {
-    page.removeAllViews()
-    header()
-
-    val scroll = ScrollView(this)
-
-    val content = LinearLayout(this)
-
-    content.orientation =
-        LinearLayout.VERTICAL
-
-    content.setPadding(
-        dp(20),
-        dp(20),
-        dp(20),
-        dp(30)
-    )
-
-    text(
-        content,
-        "device",
-        20f,
-        white,
-        true
-    )
-
-    space(content, 20)
-
-    val values =
-        arrayOf(
-            "model" to
-                android.os.Build.MODEL,
-
-            "manufacturer" to
-                android.os.Build.MANUFACTURER,
-
-            "android" to
-                android.os.Build.VERSION.RELEASE,
-
-            "sdk" to
-                android.os.Build.VERSION.SDK_INT
-                    .toString(),
-
-            "package" to
-                packageName
-        )
-
-    for ((key, value) in values) {
+    private fun deviceRow(
+        parent: LinearLayout,
+        label: String,
+        value: String
+    ): TextView {
         val row = LinearLayout(this)
+        row.orientation = LinearLayout.HORIZONTAL
+        row.gravity = Gravity.CENTER_VERTICAL
 
-        row.orientation =
-            LinearLayout.HORIZONTAL
-
-        row.setPadding(
-            0,
-            dp(10),
-            0,
-            dp(10)
+        val left = TextView(this)
+        left.text = label
+        left.textSize = 10f
+        left.setTextColor(
+            Color.rgb(85, 85, 85)
         )
-
-        text(
-            row,
-            key,
-            12f,
-            gray
-        )
-
-        val valueText =
-            TextView(this)
-
-        valueText.text = value
-        valueText.textSize = 12f
-        valueText.setTextColor(white)
-        valueText.typeface = mono()
-        valueText.gravity =
-            Gravity.RIGHT
+        left.typeface = mono()
 
         row.addView(
-            valueText,
+            left,
+            LinearLayout.LayoutParams(
+                0,
+                dp(34),
+                1f
+            )
+        )
+
+        val right = TextView(this)
+        right.text = value
+        right.textSize = 10f
+        right.setTextColor(lightGray)
+        right.typeface = mono()
+        right.gravity = Gravity.RIGHT
+
+        row.addView(
+            right,
+            LinearLayout.LayoutParams(
+                0,
+                dp(34),
+                1f
+            )
+        )
+
+        divider(parent)
+        parent.addView(row)
+
+        return right
+    }
+
+    private fun updateDeviceText(
+        text: TextView,
+        value: String
+    ) {
+        text.text = value
+    }
+
+    /* AUTHORIZATIONS */
+
+    private fun authorizationPage() {
+        val scroll = ScrollView(this)
+
+        val layout = LinearLayout(this)
+        layout.orientation = LinearLayout.VERTICAL
+
+        layout.setPadding(
+            dp(18),
+            dp(24),
+            dp(18),
+            dp(35)
+        )
+
+        title(
+            layout,
+            "authorizations"
+        )
+
+        subtitle(
+            layout,
+            "applications requesting access to the unlockr service."
+        )
+
+        authorizationCard(
+            layout,
+            "terminal",
+            "com.unlockr.terminal"
+        )
+
+        authorizationCard(
+            layout,
+            "quest tools",
+            "com.awesomecfw.questtools"
+        )
+
+        authorizationCard(
+            layout,
+            "adb bridge",
+            "com.unlockr.adbbridge"
+        )
+
+        scroll.addView(layout)
+
+        content.addView(
+            scroll,
+            FrameLayout.LayoutParams(
+                -1,
+                -1
+            )
+        )
+    }
+
+    private fun authorizationCard(
+        parent: LinearLayout,
+        name: String,
+        pkg: String
+    ) {
+        val card = LinearLayout(this)
+        card.orientation = LinearLayout.VERTICAL
+        card.setPadding(
+            dp(14),
+            dp(14),
+            dp(14),
+            dp(14)
+        )
+        card.background =
+            strokeDrawable(
+                dark,
+                Color.rgb(27, 27, 27)
+            )
+
+        val nameText = TextView(this)
+        nameText.text = name
+        nameText.textSize = 12f
+        nameText.setTextColor(white)
+        nameText.typeface = mono()
+
+        card.addView(nameText)
+
+        val packageText = TextView(this)
+        packageText.text = pkg
+        packageText.textSize = 10f
+        packageText.setTextColor(
+            Color.rgb(85, 85, 85)
+        )
+        packageText.typeface = mono()
+
+        val packageParams =
+            LinearLayout.LayoutParams(
+                -1,
+                -2
+            )
+
+        packageParams.topMargin = dp(5)
+
+        card.addView(
+            packageText,
+            packageParams
+        )
+
+        val actions = LinearLayout(this)
+        actions.orientation = LinearLayout.HORIZONTAL
+
+        val grant = buttonView(
+            "grant",
+            true
+        )
+
+        val revoke = buttonView(
+            "revoke",
+            false
+        )
+
+        val actionParams =
+            LinearLayout.LayoutParams(
+                dp(65),
+                dp(34)
+            )
+
+        actionParams.topMargin = dp(12)
+
+        actions.addView(
+            grant,
+            actionParams
+        )
+
+        val gap = Space(this)
+
+        actions.addView(
+            gap,
+            LinearLayout.LayoutParams(
+                dp(7),
+                1
+            )
+        )
+
+        actions.addView(
+            revoke,
+            LinearLayout.LayoutParams(
+                dp(65),
+                dp(34)
+            )
+        )
+
+        card.addView(actions)
+
+        grant.setOnClickListener {
+            grant.text = "granted"
+            grant.background =
+                strokeDrawable(
+                    dark,
+                    Color.rgb(41, 41, 41)
+                )
+
+            card.background =
+                strokeDrawable(
+                    dark,
+                    Color.rgb(51, 51, 51)
+                )
+
+            toast("authorization granted")
+        }
+
+        revoke.setOnClickListener {
+            grant.text = "grant"
+            grant.background =
+                solidDrawable(white)
+
+            grant.setTextColor(black)
+
+            card.background =
+                strokeDrawable(
+                    dark,
+                    Color.rgb(27, 27, 27)
+                )
+
+            toast("authorization revoked")
+        }
+
+        val params =
+            LinearLayout.LayoutParams(
+                -1,
+                -2
+            )
+
+        params.bottomMargin = dp(9)
+
+        parent.addView(card, params)
+    }
+
+    /* TOOLS */
+
+    private fun toolsPage() {
+        val scroll = ScrollView(this)
+
+        val layout = LinearLayout(this)
+        layout.orientation = LinearLayout.VERTICAL
+
+        layout.setPadding(
+            dp(18),
+            dp(24),
+            dp(18),
+            dp(35)
+        )
+
+        title(layout, "tools")
+
+        sectionTitle(
+            layout,
+            "status led"
+        )
+
+        val preview = FrameLayout(this)
+        preview.setBackgroundColor(
+            Color.rgb(5, 5, 5)
+        )
+        preview.background =
+            strokeDrawable(
+                Color.rgb(5, 5, 5),
+                Color.rgb(23, 23, 23)
+            )
+
+        val image = ImageView(this)
+        image.scaleType =
+            ImageView.ScaleType.FIT_CENTER
+
+        preview.addView(
+            image,
+            FrameLayout.LayoutParams(
+                -1,
+                -1
+            )
+        )
+
+        val glow = View(this)
+
+        glow.background =
+            circleDrawable(Color.BLACK)
+
+        val glowParams = FrameLayout.LayoutParams(
+            dp(5),
+            dp(5)
+        )
+
+        glowParams.leftMargin =
+            (dp(18) + dp(18)) +
+                    (dp(280) * .588f)
+                .toInt()
+
+        glowParams.topMargin =
+            dp(245 / 2) +
+                    (dp(170) * .224f)
+                .toInt()
+
+        preview.addView(
+            glow,
+            glowParams
+        )
+
+        val previewParams =
+            LinearLayout.LayoutParams(
+                -1,
+                dp(245)
+            )
+
+        previewParams.bottomMargin = dp(12)
+
+        layout.addView(
+            preview,
+            previewParams
+        )
+
+        loadQuestImage(image)
+
+        val ledGrid = LinearLayout(this)
+        ledGrid.orientation =
+            LinearLayout.VERTICAL
+
+        val colors = arrayOf(
+            "red" to Color.rgb(255, 34, 34),
+            "green" to Color.rgb(34, 255, 85),
+            "blue" to Color.rgb(51, 136, 255),
+            "white" to Color.WHITE,
+            "yellow" to Color.rgb(255, 255, 34),
+            "purple" to Color.rgb(255, 34, 255),
+            "cyan" to Color.rgb(34, 255, 255)
+        )
+
+        var row: LinearLayout? = null
+
+        colors.forEachIndexed { index, item ->
+
+            if (index % 4 == 0) {
+                row = LinearLayout(this)
+                row!!.orientation =
+                    LinearLayout.HORIZONTAL
+
+                ledGrid.addView(
+                    row,
+                    LinearLayout.LayoutParams(
+                        -1,
+                        dp(36)
+                    )
+                )
+            }
+
+            val b = TextView(this)
+            b.text = item.first
+            b.textSize = 10f
+            b.setTextColor(lightGray)
+            b.typeface = mono()
+            b.gravity = Gravity.CENTER
+            b.background =
+                strokeDrawable(
+                    Color.rgb(8, 8, 8),
+                    Color.rgb(37, 37, 37)
+                )
+
+            b.setOnClickListener {
+                stopRainbow()
+                applyGlow(
+                    glow,
+                    item.second
+                )
+                toast(
+                    "led set to " +
+                            item.first
+                )
+            }
+
+            val params =
+                LinearLayout.LayoutParams(
+                    0,
+                    dp(36),
+                    1f
+                )
+
+            params.setMargins(
+                dp(3),
+                0,
+                dp(3),
+                dp(7)
+            )
+
+            row!!.addView(b, params)
+        }
+
+        val rainbow = TextView(this)
+        rainbow.text = "rainbow"
+        rainbow.textSize = 10f
+        rainbow.setTextColor(lightGray)
+        rainbow.typeface = mono()
+        rainbow.gravity = Gravity.CENTER
+        rainbow.background =
+            strokeDrawable(
+                Color.rgb(8, 8, 8),
+                Color.rgb(37, 37, 37)
+            )
+
+        rainbow.setOnClickListener {
+            if (rainbowActive) {
+                stopRainbow()
+                applyGlow(
+                    glow,
+                    Color.BLACK
+                )
+                toast("rainbow stopped")
+            } else {
+                startRainbow(glow)
+                toast("rainbow mode")
+            }
+        }
+
+        val rainbowRow =
+            LinearLayout(this)
+
+        rainbowRow.addView(
+            rainbow,
+            LinearLayout.LayoutParams(
+                0,
+                dp(36),
+                1f
+            )
+        )
+
+        ledGrid.addView(
+            rainbowRow,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(36)
+            )
+        )
+
+        layout.addView(ledGrid)
+
+        val customRow = LinearLayout(this)
+        customRow.orientation =
+            LinearLayout.HORIZONTAL
+        customRow.gravity =
+            Gravity.CENTER_VERTICAL
+
+        divider(customRow)
+
+        val customText = LinearLayout(this)
+        customText.orientation =
+            LinearLayout.VERTICAL
+
+        val customTitle = TextView(this)
+        customTitle.text = "custom rgb"
+        customTitle.textSize = 12f
+        customTitle.setTextColor(white)
+        customTitle.typeface = mono()
+
+        customText.addView(customTitle)
+
+        val rgbText = TextView(this)
+        rgbText.text = "255, 255, 255"
+        rgbText.textSize = 10f
+        rgbText.setTextColor(
+            Color.rgb(85, 85, 85)
+        )
+        rgbText.typeface = mono()
+
+        customText.addView(
+            rgbText,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(22)
+            )
+        )
+
+        customRow.addView(
+            customText,
             LinearLayout.LayoutParams(
                 0,
                 -2,
@@ -2022,539 +1230,1295 @@ private fun device() {
             )
         )
 
-        content.addView(row)
-
-        line(content)
-    }
-
-    scroll.addView(content)
-
-    page.addView(
-        scroll,
-        LinearLayout.LayoutParams(
-            -1,
+        val custom = EditText(this)
+        custom.inputType =
+            InputType.TYPE_CLASS_TEXT
+        custom.setSingleLine(true)
+        custom.setText("#ffffff")
+        custom.setTextColor(white)
+        custom.textSize = 10f
+        custom.typeface = mono()
+        custom.background =
+            strokeDrawable(
+                Color.rgb(8, 8, 8),
+                Color.rgb(41, 41, 41)
+            )
+        custom.setPadding(
+            dp(7),
             0,
-            1f
+            dp(7),
+            0
         )
-    )
-}
 
-private fun openPackage(
-    pkg: String
-) {
-    try {
-        val intent =
-            packageManager
-                .getLaunchIntentForPackage(
-                    pkg
-                )
+        customRow.addView(
+            custom,
+            LinearLayout.LayoutParams(
+                dp(70),
+                dp(36)
+            )
+        )
 
-        if (intent != null) {
-            startActivity(intent)
-        } else {
-            Toast.makeText(
-                this,
-                "app cannot be opened",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-    } catch (_: Exception) {
-        Toast.makeText(
-            this,
-            "unable to open app",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-}
+        val apply = buttonView(
+            "apply",
+            false
+        )
 
-private fun openSystemAppInfo(
-    pkg: String
-) {
-    try {
-        val intent =
-            Intent(
-                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                Uri.parse(
-                    "package:$pkg"
-                )
+        val applyParams =
+            LinearLayout.LayoutParams(
+                dp(55),
+                dp(36)
             )
 
-        startActivity(intent)
-    } catch (_: Exception) {
-        Toast.makeText(
-            this,
-            "unable to open app info",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-}
+        applyParams.leftMargin = dp(8)
 
-private fun uninstallPackage(
-    pkg: String
-) {
-    try {
-        val intent =
-            Intent(
-                Intent.ACTION_DELETE,
-                Uri.parse(
-                    "package:$pkg"
+        customRow.addView(
+            apply,
+            applyParams
+        )
+
+        layout.addView(
+            customRow,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(60)
+            )
+        )
+
+        apply.setOnClickListener {
+            try {
+                val color =
+                    Color.parseColor(
+                        custom.text.toString()
+                    )
+
+                stopRainbow()
+                applyGlow(
+                    glow,
+                    color
                 )
-            )
 
-        startActivity(intent)
-    } catch (_: Exception) {
-        Toast.makeText(
-            this,
-            "unable to uninstall",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-}
+                val r = Color.red(color)
+                val g = Color.green(color)
+                val b = Color.blue(color)
 
-private fun openDrawer() {
-    drawer.removeAllViews()
+                rgbText.text =
+                    "$r, $g, $b"
 
-    text(
-        drawer,
-        "unlockr",
-        20f,
-        white,
-        true
-    )
-
-    space(drawer, 28)
-
-    drawerItem("apps") {
-        closeDrawer()
-        apps()
-    }
-
-    drawerItem("patched") {
-        closeDrawer()
-        patched()
-    }
-
-    drawerItem("mods") {
-        closeDrawer()
-        mods()
-    }
-
-    drawerItem("terminal") {
-        closeDrawer()
-        terminal()
-    }
-
-    drawerItem("device") {
-        closeDrawer()
-        device()
-    }
-
-    space(drawer, 20)
-
-    line(drawer)
-
-    space(drawer, 20)
-
-    drawerItem("wireless adb") {
-        closeDrawer()
-        adbSetup()
-    }
-
-    drawer.visibility = View.VISIBLE
-    overlay.visibility = View.VISIBLE
-}
-
-private fun closeDrawer() {
-    drawer.visibility = View.GONE
-    overlay.visibility = View.GONE
-}
-
-private fun drawerItem(
-    label: String,
-    action: () -> Unit
-) {
-    val item = TextView(this)
-
-    item.text = label
-    item.textSize = 14f
-    item.setTextColor(white)
-    item.typeface = mono()
-    item.gravity =
-        Gravity.CENTER_VERTICAL
-
-    item.setPadding(
-        0,
-        dp(15),
-        0,
-        dp(15)
-    )
-
-    item.setOnClickListener {
-        action()
-    }
-
-    drawer.addView(
-        item,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(48)
-        )
-    )
-}
-
-private fun settingAction(
-    parent: LinearLayout,
-    label: String,
-    action: () -> Unit
-) {
-    val button = TextView(this)
-
-    button.text = label
-    button.textSize = 12f
-    button.setTextColor(white)
-
-    button.typeface =
-        Typeface.create(
-            mono(),
-            Typeface.BOLD
-        )
-
-    button.gravity =
-        Gravity.CENTER
-
-    val bg =
-        android.graphics.drawable
-            .GradientDrawable()
-
-    bg.setColor(black)
-
-    bg.setStroke(
-        dp(1),
-        darkGray
-    )
-
-    button.background = bg
-
-    button.setOnClickListener {
-        action()
-    }
-
-    parent.addView(
-        button,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(44)
-        )
-    )
-
-    space(parent, 8)
-}
-
-private fun button(
-    parent: LinearLayout,
-    label: String,
-    action: () -> Unit
-) {
-    val b = TextView(this)
-
-    b.text = label
-    b.textSize = 12f
-    b.setTextColor(white)
-
-    b.typeface =
-        Typeface.create(
-            mono(),
-            Typeface.BOLD
-        )
-
-    b.gravity =
-        Gravity.CENTER
-
-    val bg =
-        android.graphics.drawable
-            .GradientDrawable()
-
-    bg.setColor(black)
-
-    bg.setStroke(
-        dp(1),
-        darkGray
-    )
-
-    b.background = bg
-
-    b.setOnClickListener {
-        action()
-    }
-
-    parent.addView(
-        b,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(44)
-        )
-    )
-}
-
-private fun smallButton(
-    parent: LinearLayout,
-    label: String,
-    action: () -> Unit
-) {
-    val b = TextView(this)
-
-    b.text = label
-    b.textSize = 11f
-    b.setTextColor(gray)
-    b.typeface = mono()
-    b.gravity =
-        Gravity.CENTER
-
-    b.setOnClickListener {
-        action()
-    }
-
-    parent.addView(
-        b,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(38)
-        )
-    )
-}
-
-private fun smallOutlineButton(
-    label: String
-): TextView {
-    val b = TextView(this)
-
-    b.text = label
-    b.textSize = 9f
-    b.setTextColor(white)
-
-    b.typeface =
-        Typeface.create(
-            mono(),
-            Typeface.BOLD
-        )
-
-    b.gravity =
-        Gravity.CENTER
-
-    val bg =
-        android.graphics.drawable
-            .GradientDrawable()
-
-    bg.setColor(black)
-
-    bg.setStroke(
-        dp(1),
-        darkGray
-    )
-
-    b.background = bg
-
-    return b
-}
-
-private fun field(
-    hint: String,
-    value: String
-): EditText {
-    val e = EditText(this)
-
-    e.hint = hint
-    e.setHintTextColor(gray)
-    e.setTextColor(white)
-    e.textSize = 12f
-    e.typeface = mono()
-    e.setSingleLine(true)
-    e.setText(value)
-
-    e.setPadding(
-        dp(12),
-        0,
-        dp(12),
-        0
-    )
-
-    val bg =
-        android.graphics.drawable
-            .GradientDrawable()
-
-    bg.setColor(black)
-
-    bg.setStroke(
-        dp(1),
-        darkGray
-    )
-
-    e.background = bg
-
-    return e
-}
-
-private fun bordered(): LinearLayout {
-    val box = LinearLayout(this)
-
-    box.orientation =
-        LinearLayout.VERTICAL
-
-    val bg =
-        android.graphics.drawable
-            .GradientDrawable()
-
-    bg.setColor(black)
-
-    bg.setStroke(
-        dp(1),
-        darkGray
-    )
-
-    box.background = bg
-
-    box.setPadding(
-        dp(14),
-        dp(12),
-        dp(14),
-        dp(12)
-    )
-
-    return box
-}
-
-private fun terminalBox(
-    parent: LinearLayout,
-    value: String
-) {
-    val box = bordered()
-
-    val output = TextView(this)
-
-    output.text = value
-    output.textSize = 12f
-    output.setTextColor(white)
-    output.typeface = mono()
-
-    box.addView(
-        output,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(180)
-        )
-    )
-
-    parent.addView(
-        box,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(205)
-        )
-    )
-}
-
-private fun text(
-    parent: ViewGroup,
-    value: String,
-    size: Float,
-    color: Int,
-    bold: Boolean = false
-) {
-    val t = TextView(this)
-
-    t.text = value
-    t.textSize = size
-    t.setTextColor(color)
-
-    t.typeface =
-        if (bold) {
-            Typeface.create(
-                mono(),
-                Typeface.BOLD
-            )
-        } else {
-            mono()
+                toast("custom rgb applied")
+            } catch (_: Exception) {
+                toast("invalid color")
+            }
         }
 
-    parent.addView(
-        t,
-        LinearLayout.LayoutParams(
-            -1,
-            -2
+        val off = buttonView(
+            "turn led off",
+            false
         )
-    )
-}
 
-private fun line(
-    parent: LinearLayout
-) {
-    val v = View(this)
+        val offParams =
+            LinearLayout.LayoutParams(
+                -1,
+                dp(38)
+            )
 
-    v.setBackgroundColor(
-        darkGray
-    )
+        offParams.topMargin = dp(10)
 
-    parent.addView(
-        v,
-        LinearLayout.LayoutParams(
-            -1,
-            dp(1)
+        layout.addView(off, offParams)
+
+        off.setOnClickListener {
+            stopRainbow()
+            applyGlow(
+                glow,
+                Color.BLACK
+            )
+            rgbText.text = "off"
+            toast("led turned off")
+        }
+
+        sectionTitle(
+            layout,
+            "device"
         )
-    )
-}
 
-private fun space(
-    parent: LinearLayout,
-    amount: Int
-) {
-    val v = View(this)
+        settingRow(
+            layout,
+            "verbose boot",
+            "show additional boot information",
+            "enable"
+        ) { button ->
+            button.text =
+                if (button.text == "enable")
+                    "disable"
+                else
+                    "enable"
 
-    parent.addView(
-        v,
-        LinearLayout.LayoutParams(
-            1,
-            dp(amount)
+            terminalWrite(
+                "verbose boot " +
+                        if (button.text == "disable")
+                            "enabled"
+                        else
+                            "disabled"
+            )
+
+            toast(
+                if (button.text == "disable")
+                    "verbose boot enabled"
+                else
+                    "verbose boot disabled"
+            )
+        }
+
+        settingRow(
+            layout,
+            "reboot",
+            "restart the device",
+            "reboot"
+        ) {
+            showModal(
+                "reboot device",
+                "this would request a device reboot through the Unlockr privileged service."
+            ) {
+                terminalWrite(
+                    "reboot request sent"
+                )
+                toast(
+                    "reboot request sent"
+                )
+            }
+        }
+
+        scroll.addView(layout)
+
+        content.addView(
+            scroll,
+            FrameLayout.LayoutParams(
+                -1,
+                -1
+            )
         )
-    )
-}
+    }
 
-private fun spaceHorizontal(
-    parent: LinearLayout,
-    amount: Int
-) {
-    val v = View(this)
-
-    parent.addView(
-        v,
-        LinearLayout.LayoutParams(
-            dp(amount),
-            1
-        )
-    )
-}
-
-private fun mono(): Typeface {
-    return Typeface.MONOSPACE
-}
-
-private fun dp(
-    value: Int
-): Int {
-    return (
-        value *
-        resources.displayMetrics.density
-    ).toInt()
-}
-
-override fun onBackPressed() {
-    if (
-        drawer.visibility ==
-        View.VISIBLE
+    private fun loadQuestImage(
+        image: ImageView
     ) {
-        closeDrawer()
-    } else {
-        apps()
-    }
-}
+        Thread {
+            try {
+                val url = URL(
+                    "https://raw.githubusercontent.com/awesomecfw/unlockr-tools/refs/heads/main/quest2led.png"
+                )
 
+                val stream = url.openStream()
+                val bitmap =
+                    BitmapFactory.decodeStream(stream)
+
+                stream.close()
+
+                runOnUiThread {
+                    image.setImageBitmap(bitmap)
+                }
+            } catch (_: Exception) {
+            }
+        }.start()
+    }
+
+    private fun applyGlow(
+        view: View,
+        color: Int
+    ) {
+        ledColor = color
+
+        if (color == Color.BLACK) {
+            view.background =
+                circleDrawable(Color.BLACK)
+            view.elevation = 0f
+            return
+        }
+
+        view.background =
+            circleDrawable(color)
+
+        view.elevation = dp(5).toFloat()
+    }
+
+    private fun startRainbow(
+        view: View
+    ) {
+        if (rainbowActive) return
+
+        rainbowActive = true
+
+        rainbowAnimator =
+            ValueAnimator.ofFloat(
+                0f,
+                360f
+            )
+
+        rainbowAnimator!!.duration = 4000
+        rainbowAnimator!!.repeatCount =
+            ValueAnimator.INFINITE
+        rainbowAnimator!!.interpolator =
+            android.view.animation.LinearInterpolator()
+
+        rainbowAnimator!!.addUpdateListener {
+            val hsv = floatArrayOf(
+                it.animatedValue as Float,
+                1f,
+                1f
+            )
+
+            applyGlow(
+                view,
+                Color.HSVToColor(hsv)
+            )
+        }
+
+        rainbowAnimator!!.start()
+    }
+
+    private fun stopRainbow() {
+        rainbowActive = false
+
+        rainbowAnimator?.cancel()
+        rainbowAnimator = null
+    }
+
+    /* TERMINAL */
+
+    private var terminalOutput: TextView? = null
+
+    private fun terminalPage() {
+        val layout = LinearLayout(this)
+        layout.orientation =
+            LinearLayout.VERTICAL
+
+        layout.setPadding(
+            dp(18),
+            dp(24),
+            dp(18),
+            dp(20)
+        )
+
+        title(layout, "terminal")
+
+        val terminal = ScrollView(this)
+
+        terminal.background =
+            strokeDrawable(
+                Color.rgb(5, 5, 5),
+                Color.rgb(24, 24, 24)
+            )
+
+        val output = TextView(this)
+        output.text =
+            "unlockr terminal\n" +
+                    "service: " +
+                    if (serviceActive)
+                        "active"
+                    else
+                        "inactive" +
+                    "\n" +
+                    "type \"help\" for commands\n\n" +
+                    "$ "
+
+        output.textSize = 11f
+        output.setTextColor(lightGray)
+        output.typeface = mono()
+        output.setPadding(
+            dp(12),
+            dp(12),
+            dp(12),
+            dp(12)
+        )
+
+        terminalOutput = output
+
+        terminal.addView(
+            output,
+            LinearLayout.LayoutParams(
+                -1,
+                -2
+            )
+        )
+
+        layout.addView(
+            terminal,
+            LinearLayout.LayoutParams(
+                -1,
+                0,
+                1f
+            )
+        )
+
+        val input = EditText(this)
+        input.hint = "enter command..."
+        input.setHintTextColor(gray)
+        input.setTextColor(white)
+        input.textSize = 11f
+        input.typeface = mono()
+        input.setSingleLine(true)
+        input.background =
+            solidDrawable(black)
+        input.setPadding(
+            0,
+            dp(12),
+            0,
+            dp(12)
+        )
+
+        input.setOnEditorActionListener { _, _, _ ->
+            executeTerminal(
+                input.text.toString()
+            )
+            input.text.clear()
+            true
+        }
+
+        layout.addView(
+            input,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(45)
+            )
+        )
+
+        content.addView(
+            layout,
+            FrameLayout.LayoutParams(
+                -1,
+                -1
+            )
+        )
+    }
+
+    private fun terminalWrite(
+        text: String
+    ) {
+        val output = terminalOutput ?: return
+
+        output.append(
+            if (output.text.isNotEmpty())
+                "\n$text"
+            else
+                text
+        )
+    }
+
+    private fun executeTerminal(
+        command: String
+    ) {
+        val cmd = command.trim().lowercase()
+
+        if (cmd.isEmpty()) return
+
+        terminalWrite("$ $command")
+
+        when (cmd) {
+            "help" -> {
+                terminalWrite(
+                    "commands:\n" +
+                            "  help\n" +
+                            "  status\n" +
+                            "  root\n" +
+                            "  stop\n" +
+                            "  led red\n" +
+                            "  led green\n" +
+                            "  led blue\n" +
+                            "  led off\n" +
+                            "  clear"
+                )
+            }
+
+            "status" -> {
+                terminalWrite(
+                    "service: " +
+                            if (serviceActive)
+                                "active"
+                            else
+                                "inactive"
+                )
+            }
+
+            "root" -> {
+                if (serviceActive) {
+                    terminalWrite(
+                        "service already active"
+                    )
+                } else {
+                    terminalWrite(
+                        "starting unlockr service..."
+                    )
+                    showPage("root")
+                }
+            }
+
+            "stop" -> {
+                if (serviceActive) {
+                    serviceActive = false
+                    terminalWrite(
+                        "unlockr service stopped"
+                    )
+                } else {
+                    terminalWrite(
+                        "service already inactive"
+                    )
+                }
+            }
+
+            "led red" -> {
+                terminalWrite(
+                    "led set to red"
+                )
+            }
+
+            "led green" -> {
+                terminalWrite(
+                    "led set to green"
+                )
+            }
+
+            "led blue" -> {
+                terminalWrite(
+                    "led set to blue"
+                )
+            }
+
+            "led off" -> {
+                terminalWrite(
+                    "led turned off"
+                )
+            }
+
+            "clear" -> {
+                terminalOutput?.text = ""
+            }
+
+            else -> {
+                terminalWrite(
+                    "unknown command: $command"
+                )
+            }
+        }
+    }
+
+    /* SETTINGS */
+
+    private fun settingsPage() {
+        val scroll = ScrollView(this)
+
+        val layout = LinearLayout(this)
+        layout.orientation =
+            LinearLayout.VERTICAL
+
+        layout.setPadding(
+            dp(18),
+            dp(24),
+            dp(18),
+            dp(35)
+        )
+
+        title(layout, "settings")
+
+        settingSwitch(
+            layout,
+            "start service on boot",
+            "automatically start unlockr",
+            false
+        )
+
+        settingSwitch(
+            layout,
+            "authorization prompts",
+            "ask before granting app access",
+            true
+        )
+
+        settingSwitch(
+            layout,
+            "verbose logging",
+            "show additional service logs",
+            false
+        )
+
+        val reset = buttonView(
+            "reset settings",
+            false
+        )
+
+        val resetParams =
+            LinearLayout.LayoutParams(
+                -1,
+                dp(38)
+            )
+
+        resetParams.topMargin = dp(10)
+
+        layout.addView(
+            reset,
+            resetParams
+        )
+
+        reset.setOnClickListener {
+            toast("settings reset")
+        }
+
+        scroll.addView(layout)
+
+        content.addView(
+            scroll,
+            FrameLayout.LayoutParams(
+                -1,
+                -1
+            )
+        )
+    }
+
+    private fun settingSwitch(
+        parent: LinearLayout,
+        name: String,
+        sub: String,
+        enabled: Boolean
+    ) {
+        val row = LinearLayout(this)
+        row.orientation =
+            LinearLayout.HORIZONTAL
+        row.gravity =
+            Gravity.CENTER_VERTICAL
+
+        divider(parent)
+
+        val textBox =
+            LinearLayout(this)
+
+        textBox.orientation =
+            LinearLayout.VERTICAL
+
+        val title = TextView(this)
+        title.text = name
+        title.textSize = 12f
+        title.setTextColor(white)
+        title.typeface = mono()
+
+        textBox.addView(title)
+
+        val description = TextView(this)
+        description.text = sub
+        description.textSize = 10f
+        description.setTextColor(
+            Color.rgb(85, 85, 85)
+        )
+        description.typeface = mono()
+
+        val descParams =
+            LinearLayout.LayoutParams(
+                -1,
+                -2
+            )
+
+        descParams.topMargin = dp(5)
+
+        textBox.addView(
+            description,
+            descParams
+        )
+
+        row.addView(
+            textBox,
+            LinearLayout.LayoutParams(
+                0,
+                dp(55),
+                1f
+            )
+        )
+
+        val sw = SwitchView(
+            this,
+            enabled
+        )
+
+        row.addView(
+            sw,
+            LinearLayout.LayoutParams(
+                dp(38),
+                dp(20)
+            )
+        )
+
+        sw.setOnClickListener {
+            sw.toggle()
+            toast(
+                if (sw.enabledState)
+                    "setting enabled"
+                else
+                    "setting disabled"
+            )
+        }
+
+        parent.addView(row)
+    }
+
+    /* GENERIC UI */
+
+    private fun title(
+        parent: LinearLayout,
+        value: String
+    ) {
+        val t = TextView(this)
+        t.text = value
+        t.textSize = 16f
+        t.setTextColor(white)
+        t.typeface = mono()
+
+        parent.addView(
+            t,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(28)
+            )
+        )
+    }
+
+    private fun subtitle(
+        parent: LinearLayout,
+        value: String
+    ) {
+        val t = TextView(this)
+        t.text = value
+        t.textSize = 11f
+        t.setTextColor(gray)
+        t.typeface = mono()
+        t.setLineSpacing(0f, 1.6f)
+
+        val p =
+            LinearLayout.LayoutParams(
+                -1,
+                -2
+            )
+
+        p.topMargin = -dp(5)
+        p.bottomMargin = dp(20)
+
+        parent.addView(t, p)
+    }
+
+    private fun sectionTitle(
+        parent: LinearLayout,
+        value: String
+    ) {
+        val t = TextView(this)
+        t.text = value.uppercase()
+        t.textSize = 10f
+        t.setTextColor(
+            Color.rgb(119, 119, 119)
+        )
+        t.typeface = mono()
+
+        val p =
+            LinearLayout.LayoutParams(
+                -1,
+                dp(25)
+            )
+
+        p.topMargin = dp(12)
+        p.bottomMargin = dp(2)
+
+        parent.addView(t, p)
+    }
+
+    private fun settingRow(
+        parent: LinearLayout,
+        name: String,
+        sub: String,
+        buttonText: String,
+        action: (TextView) -> Unit
+    ) {
+        divider(parent)
+
+        val row = LinearLayout(this)
+        row.orientation =
+            LinearLayout.HORIZONTAL
+        row.gravity =
+            Gravity.CENTER_VERTICAL
+
+        val textBox =
+            LinearLayout(this)
+
+        textBox.orientation =
+            LinearLayout.VERTICAL
+
+        val nameText = TextView(this)
+        nameText.text = name
+        nameText.textSize = 12f
+        nameText.setTextColor(white)
+        nameText.typeface = mono()
+
+        textBox.addView(nameText)
+
+        val subText = TextView(this)
+        subText.text = sub
+        subText.textSize = 10f
+        subText.setTextColor(
+            Color.rgb(85, 85, 85)
+        )
+        subText.typeface = mono()
+
+        textBox.addView(
+            subText,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(25)
+            )
+        )
+
+        row.addView(
+            textBox,
+            LinearLayout.LayoutParams(
+                0,
+                dp(65),
+                1f
+            )
+        )
+
+        val button = buttonView(
+            buttonText,
+            false
+        )
+
+        row.addView(
+            button,
+            LinearLayout.LayoutParams(
+                dp(65),
+                dp(34)
+            )
+        )
+
+        button.setOnClickListener {
+            action(button)
+        }
+
+        parent.addView(row)
+    }
+
+    private fun buttonView(
+        text: String,
+        primary: Boolean
+    ): TextView {
+        val b = TextView(this)
+
+        b.text = text
+        b.textSize = 11f
+        b.gravity = Gravity.CENTER
+        b.typeface = mono()
+
+        if (primary) {
+            b.setTextColor(black)
+            b.background =
+                solidDrawable(white)
+        } else {
+            b.setTextColor(
+                Color.rgb(221, 221, 221)
+            )
+            b.background =
+                strokeDrawable(
+                    Color.rgb(10, 10, 10),
+                    Color.rgb(41, 41, 41)
+                )
+        }
+
+        return b
+    }
+
+    private fun divider(
+        parent: LinearLayout
+    ) {
+        val line = View(this)
+        line.setBackgroundColor(
+            Color.rgb(23, 23, 23)
+        )
+
+        parent.addView(
+            line,
+            LinearLayout.LayoutParams(
+                -1,
+                dp(1)
+            )
+        )
+    }
+
+    private fun toast(
+        text: String
+    ) {
+        val t = TextView(this)
+
+        t.text = text
+        t.textSize = 10f
+        t.setTextColor(black)
+        t.typeface = mono()
+        t.gravity = Gravity.CENTER
+        t.setPadding(
+            dp(13),
+            dp(9),
+            dp(13),
+            dp(9)
+        )
+        t.background =
+            solidDrawable(white)
+
+        val params =
+            FrameLayout.LayoutParams(
+                -2,
+                dp(35)
+            )
+
+        params.gravity =
+            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+
+        params.bottomMargin = dp(20)
+
+        root.addView(t, params)
+
+        t.alpha = 0f
+        t.translationY = dp(20).toFloat()
+
+        t.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(180)
+            .start()
+
+        handler.postDelayed({
+            t.animate()
+                .alpha(0f)
+                .translationY(dp(20).toFloat())
+                .setDuration(180)
+                .withEndAction {
+                    root.removeView(t)
+                }
+                .start()
+        }, 1800)
+    }
+
+    private fun showModal(
+        title: String,
+        message: String,
+        action: () -> Unit
+    ) {
+        val modal = FrameLayout(this)
+        modal.setBackgroundColor(
+            Color.argb(185, 0, 0, 0)
+        )
+
+        val box = LinearLayout(this)
+        box.orientation =
+            LinearLayout.VERTICAL
+        box.setPadding(
+            dp(18),
+            dp(18),
+            dp(18),
+            dp(18)
+        )
+        box.background =
+            strokeDrawable(
+                Color.rgb(8, 8, 8),
+                Color.rgb(41, 41, 41)
+            )
+
+        val titleView = TextView(this)
+        titleView.text = title
+        titleView.textSize = 13f
+        titleView.setTextColor(white)
+        titleView.typeface = mono()
+
+        box.addView(titleView)
+
+        val text = TextView(this)
+        text.text = message
+        text.textSize = 10f
+        text.setTextColor(
+            Color.rgb(119, 119, 119)
+        )
+        text.typeface = mono()
+        text.setLineSpacing(
+            0f,
+            1.7f
+        )
+
+        val textParams =
+            LinearLayout.LayoutParams(
+                -1,
+                -2
+            )
+
+        textParams.topMargin = dp(15)
+
+        box.addView(
+            text,
+            textParams
+        )
+
+        val actions = LinearLayout(this)
+        actions.orientation =
+            LinearLayout.HORIZONTAL
+
+        val confirm = buttonView(
+            "confirm",
+            true
+        )
+
+        val cancel = buttonView(
+            "cancel",
+            false
+        )
+
+        actions.addView(
+            confirm,
+            LinearLayout.LayoutParams(
+                0,
+                dp(36),
+                1f
+            )
+        )
+
+        val gap = Space(this)
+
+        actions.addView(
+            gap,
+            LinearLayout.LayoutParams(
+                dp(7),
+                1
+            )
+        )
+
+        actions.addView(
+            cancel,
+            LinearLayout.LayoutParams(
+                0,
+                dp(36),
+                1f
+            )
+        )
+
+        val actionParams =
+            LinearLayout.LayoutParams(
+                -1,
+                dp(36)
+            )
+
+        actionParams.topMargin = dp(17)
+
+        box.addView(
+            actions,
+            actionParams
+        )
+
+        val boxParams =
+            FrameLayout.LayoutParams(
+                dp(350),
+                -2
+            )
+
+        boxParams.gravity =
+            Gravity.CENTER
+
+        modal.addView(
+            box,
+            boxParams
+        )
+
+        root.addView(
+            modal,
+            FrameLayout.LayoutParams(
+                -1,
+                -1
+            )
+        )
+
+        modal.alpha = 0f
+        box.scaleX = .96f
+        box.scaleY = .96f
+
+        modal.animate()
+            .alpha(1f)
+            .setDuration(180)
+            .start()
+
+        box.animate()
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(180)
+            .start()
+
+        cancel.setOnClickListener {
+            modal.animate()
+                .alpha(0f)
+                .setDuration(150)
+                .withEndAction {
+                    root.removeView(modal)
+                }
+                .start()
+        }
+
+        confirm.setOnClickListener {
+            action()
+
+            modal.animate()
+                .alpha(0f)
+                .setDuration(150)
+                .withEndAction {
+                    root.removeView(modal)
+                }
+                .start()
+        }
+    }
+
+    /* DRAWABLES */
+
+    private fun solidDrawable(
+        color: Int
+    ): GradientDrawable {
+        val d = GradientDrawable()
+        d.setColor(color)
+        return d
+    }
+
+    private fun strokeDrawable(
+        color: Int,
+        stroke: Int
+    ): GradientDrawable {
+        val d = GradientDrawable()
+        d.setColor(color)
+        d.setStroke(
+            dp(1),
+            stroke
+        )
+        return d
+    }
+
+    private fun circleDrawable(
+        color: Int
+    ): GradientDrawable {
+        val d = GradientDrawable()
+        d.shape =
+            GradientDrawable.OVAL
+        d.setColor(color)
+        return d
+    }
+
+    private fun mono(): Typeface {
+        return Typeface.MONOSPACE
+    }
+
+    private fun dp(
+        value: Int
+    ): Int {
+        return (
+                value *
+                        resources.displayMetrics.density
+                ).toInt()
+    }
+
+    override fun onBackPressed() {
+        if (
+            drawer.translationX >= 0
+        ) {
+            closeDrawer()
+            return
+        }
+
+        showPage("root")
+    }
+
+    /* CUSTOM PROGRESS RING */
+
+    private class ProgressRing(
+        context: android.content.Context
+    ) : View(context) {
+
+        private val bgPaint =
+            Paint(Paint.ANTI_ALIAS_FLAG)
+
+        private val progressPaint =
+            Paint(Paint.ANTI_ALIAS_FLAG)
+
+        private val textPaint =
+            Paint(Paint.ANTI_ALIAS_FLAG)
+
+        private var value = 0f
+        private var displayed = 0f
+
+        init {
+            bgPaint.style = Paint.Style.STROKE
+            bgPaint.strokeWidth = 7f
+            bgPaint.color =
+                Color.rgb(23, 23, 23)
+
+            progressPaint.style =
+                Paint.Style.STROKE
+
+            progressPaint.strokeWidth = 7f
+            progressPaint.strokeCap =
+                Paint.Cap.ROUND
+
+            progressPaint.color =
+                Color.WHITE
+
+            textPaint.color =
+                Color.WHITE
+
+            textPaint.textSize = 19f
+            textPaint.typeface =
+                Typeface.MONOSPACE
+
+            textPaint.textAlign =
+                Paint.Align.CENTER
+        }
+
+        override fun onDraw(
+            canvas: Canvas
+        ) {
+            super.onDraw(canvas)
+
+            val cx = width / 2f
+            val cy = height / 2f
+
+            val radius =
+                minOf(width, height) / 2f -
+                        7f
+
+            canvas.drawCircle(
+                cx,
+                cy,
+                radius,
+                bgPaint
+            )
+
+            val rect = RectF(
+                cx - radius,
+                cy - radius,
+                cx + radius,
+                cy + radius
+            )
+
+            canvas.drawArc(
+                rect,
+                -90f,
+                360f * displayed / 100f,
+                false,
+                progressPaint
+            )
+
+            val percent =
+                "${displayed.toInt()}%"
+
+            val baseline =
+                cy -
+                        (
+                                textPaint.ascent() +
+                                        textPaint.descent()
+                                ) / 2f
+
+            canvas.drawText(
+                percent,
+                cx,
+                baseline,
+                textPaint
+            )
+        }
+
+        fun animateTo(
+            target: Float
+        ) {
+            value = target
+
+            val start = displayed
+
+            ValueAnimator.ofFloat(
+                start,
+                target
+            ).apply {
+                duration = 150
+                interpolator =
+                    DecelerateInterpolator()
+
+                addUpdateListener {
+                    displayed =
+                        it.animatedValue as Float
+
+                    invalidate()
+                }
+
+                start()
+            }
+        }
+    }
+
+    private class SwitchView(
+        context: android.content.Context,
+        initial: Boolean
+    ) : View(context) {
+
+        var enabledState = initial
+            private set
+
+        private val paint =
+            Paint(Paint.ANTI_ALIAS_FLAG)
+
+        init {
+            setWillNotDraw(false)
+        }
+
+        override fun onDraw(
+            canvas: Canvas
+        ) {
+            super.onDraw(canvas)
+
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = 1f
+            paint.color =
+                if (enabledState)
+                    Color.WHITE
+                else
+                    Color.rgb(51, 51, 51)
+
+            canvas.drawRect(
+                0f,
+                0f,
+                width.toFloat(),
+                height.toFloat(),
+                paint
+            )
+
+            paint.style =
+                Paint.Style.FILL
+
+            paint.color =
+                if (enabledState)
+                    Color.WHITE
+                else
+                    Color.rgb(85, 85, 85)
+
+            val x =
+                if (enabledState)
+                    width - 9f
+                else
+                    9f
+
+            canvas.drawRect(
+                x - 6f,
+                4f,
+                x + 6f,
+                height - 4f,
+                paint
+            )
+        }
+
+        fun toggle() {
+            enabledState = !enabledState
+
+            animate()
+                .setDuration(150)
+                .start()
+
+            invalidate()
+        }
+    }
 }
