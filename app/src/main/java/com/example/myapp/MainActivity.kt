@@ -11,6 +11,7 @@ import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Bundle
+import android.provider.Settings
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -25,8 +26,6 @@ import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
-import android.text.TextWatcher
-import android.text.Editable
 import kotlin.math.roundToInt
 
 class MainActivity : Activity() {
@@ -121,7 +120,8 @@ class MainActivity : Activity() {
             drawerParams
         )
 
-        drawer.translationX = -dp(285).toFloat()
+        drawer.translationX =
+            -dp(285).toFloat()
 
         buildDrawer()
 
@@ -132,7 +132,10 @@ class MainActivity : Activity() {
         content.removeAllViews()
 
         val page = LinearLayout(this)
-        page.orientation = LinearLayout.VERTICAL
+
+        page.orientation =
+            LinearLayout.VERTICAL
+
         page.setPadding(
             dp(20),
             dp(20),
@@ -152,7 +155,8 @@ class MainActivity : Activity() {
 
         text(
             page,
-            error.message ?: error.javaClass.simpleName,
+            error.message
+                ?: error.javaClass.simpleName,
             12f,
             gray
         )
@@ -171,12 +175,9 @@ class MainActivity : Activity() {
             }
         }
 
-        content.addView(
+        addPage(
             page,
-            FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
+            false
         )
     }
 
@@ -184,26 +185,34 @@ class MainActivity : Activity() {
         drawer.removeAllViews()
 
         val logo = LinearLayout(this)
-        logo.orientation = LinearLayout.HORIZONTAL
-        logo.gravity = Gravity.CENTER_VERTICAL
+
+        logo.orientation =
+            LinearLayout.HORIZONTAL
+
+        logo.gravity =
+            Gravity.CENTER_VERTICAL
 
         val unlock = TextView(this)
+
         unlock.text = "unlock"
         unlock.textSize = 21f
         unlock.setTextColor(white)
-        unlock.typeface = Typeface.create(
-            Typeface.MONOSPACE,
-            Typeface.BOLD
-        )
+        unlock.typeface =
+            Typeface.create(
+                Typeface.MONOSPACE,
+                Typeface.BOLD
+            )
 
         val r = TextView(this)
+
         r.text = "r"
         r.textSize = 21f
         r.setTextColor(gray)
-        r.typeface = Typeface.create(
-            Typeface.MONOSPACE,
-            Typeface.BOLD
-        )
+        r.typeface =
+            Typeface.create(
+                Typeface.MONOSPACE,
+                Typeface.BOLD
+            )
 
         logo.addView(unlock)
         logo.addView(r)
@@ -255,8 +264,6 @@ class MainActivity : Activity() {
         item.setTextColor(white)
         item.gravity = Gravity.CENTER_VERTICAL
         item.typeface = Typeface.MONOSPACE
-        item.isClickable = true
-        item.isFocusable = true
 
         item.setPadding(
             dp(8),
@@ -279,7 +286,8 @@ class MainActivity : Activity() {
     }
 
     private fun openDrawer() {
-        drawerOverlay.visibility = View.VISIBLE
+        drawerOverlay.visibility =
+            View.VISIBLE
 
         drawer.animate().cancel()
 
@@ -296,13 +304,16 @@ class MainActivity : Activity() {
         drawer.animate().cancel()
 
         drawer.animate()
-            .translationX(-dp(285).toFloat())
+            .translationX(
+                -dp(285).toFloat()
+            )
             .setDuration(220L)
             .setInterpolator(
                 DecelerateInterpolator()
             )
             .withEndAction {
-                drawerOverlay.visibility = View.GONE
+                drawerOverlay.visibility =
+                    View.GONE
             }
             .start()
     }
@@ -310,8 +321,11 @@ class MainActivity : Activity() {
     private fun header() {
         val bar = LinearLayout(this)
 
-        bar.orientation = LinearLayout.HORIZONTAL
-        bar.gravity = Gravity.CENTER_VERTICAL
+        bar.orientation =
+            LinearLayout.HORIZONTAL
+
+        bar.gravity =
+            Gravity.CENTER_VERTICAL
 
         bar.setPadding(
             dp(10),
@@ -327,8 +341,6 @@ class MainActivity : Activity() {
         menu.setTextColor(white)
         menu.gravity = Gravity.CENTER
         menu.typeface = Typeface.MONOSPACE
-        menu.isClickable = true
-        menu.isFocusable = true
 
         menu.setOnClickListener {
             openDrawer()
@@ -344,28 +356,33 @@ class MainActivity : Activity() {
 
         val logo = LinearLayout(this)
 
-        logo.orientation = LinearLayout.HORIZONTAL
-        logo.gravity = Gravity.CENTER_VERTICAL
+        logo.orientation =
+            LinearLayout.HORIZONTAL
+
+        logo.gravity =
+            Gravity.CENTER_VERTICAL
 
         val unlock = TextView(this)
 
         unlock.text = "unlock"
         unlock.textSize = 20f
         unlock.setTextColor(white)
-        unlock.typeface = Typeface.create(
-            Typeface.MONOSPACE,
-            Typeface.BOLD
-        )
+        unlock.typeface =
+            Typeface.create(
+                Typeface.MONOSPACE,
+                Typeface.BOLD
+            )
 
         val r = TextView(this)
 
         r.text = "r"
         r.textSize = 20f
         r.setTextColor(gray)
-        r.typeface = Typeface.create(
-            Typeface.MONOSPACE,
-            Typeface.BOLD
-        )
+        r.typeface =
+            Typeface.create(
+                Typeface.MONOSPACE,
+                Typeface.BOLD
+            )
 
         logo.addView(unlock)
         logo.addView(r)
@@ -390,9 +407,15 @@ class MainActivity : Activity() {
 
         status.textSize = 10f
         status.setTextColor(
-            if (serviceActive) white else gray
+            if (serviceActive) {
+                white
+            } else {
+                gray
+            }
         )
-        status.typeface = Typeface.MONOSPACE
+
+        status.typeface =
+            Typeface.MONOSPACE
 
         bar.addView(
             status,
@@ -416,6 +439,26 @@ class MainActivity : Activity() {
     private fun clearPage() {
         content.removeAllViews()
         header()
+    }
+
+    private fun addPage(
+        view: View,
+        belowHeader: Boolean = true
+    ) {
+        val params =
+            FrameLayout.LayoutParams(
+                -1,
+                -1
+            )
+
+        if (belowHeader) {
+            params.topMargin = dp(59)
+        }
+
+        content.addView(
+            view,
+            params
+        )
     }
 
     private fun adbSetup() {
@@ -461,14 +504,13 @@ class MainActivity : Activity() {
             try {
                 startActivity(
                     android.content.Intent(
-                        android.provider.Settings
-                            .ACTION_APPLICATION_DEVELOPMENT_SETTINGS
+                        Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS
                     )
                 )
             } catch (_: Exception) {
                 startActivity(
                     android.content.Intent(
-                        android.provider.Settings.ACTION_SETTINGS
+                        Settings.ACTION_SETTINGS
                     )
                 )
             }
@@ -586,11 +628,7 @@ class MainActivity : Activity() {
             page,
             "SAVE CONNECTION"
         ) {
-            Toast.makeText(
-                this,
-                "connection saved",
-                Toast.LENGTH_SHORT
-            ).show()
+            toast("connection saved")
         }
 
         space(page, 8)
@@ -653,23 +691,12 @@ class MainActivity : Activity() {
             page,
             "skip"
         ) {
-            runCatching {
-                showRoot()
-            }.onFailure {
-                it.printStackTrace()
-                toast("unlockr failed to open")
-            }
+            showRoot()
         }
 
         scroll.addView(page)
 
-        content.addView(
-            scroll,
-            FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
-        )
+        addPage(scroll)
     }
 
     private fun showPairCommands(
@@ -734,13 +761,7 @@ class MainActivity : Activity() {
             adbSetup()
         }
 
-        content.addView(
-            page,
-            FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
-        )
+        addPage(page)
     }
 
     private fun showConnectCommands(
@@ -804,13 +825,7 @@ class MainActivity : Activity() {
             adbSetup()
         }
 
-        content.addView(
-            page,
-            FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
-        )
+        addPage(page)
     }
 
     private fun showRoot() {
@@ -839,10 +854,11 @@ class MainActivity : Activity() {
         title.textSize = 26f
         title.setTextColor(white)
         title.gravity = Gravity.CENTER
-        title.typeface = Typeface.create(
-            Typeface.MONOSPACE,
-            Typeface.BOLD
-        )
+        title.typeface =
+            Typeface.create(
+                Typeface.MONOSPACE,
+                Typeface.BOLD
+            )
 
         page.addView(
             title,
@@ -857,7 +873,11 @@ class MainActivity : Activity() {
         val ring = ProgressRing(this)
 
         ring.setProgress(
-            if (serviceActive) 100f else 0f
+            if (serviceActive) {
+                100f
+            } else {
+                0f
+            }
         )
 
         page.addView(
@@ -872,10 +892,26 @@ class MainActivity : Activity() {
 
         val rootButton = button(
             page,
-            if (serviceActive) "STOP" else "ROOT"
+            if (serviceActive) {
+                "STOP"
+            } else {
+                "ROOT"
+            }
         )
 
+        val rootParams =
+            rootButton.layoutParams
+                as LinearLayout.LayoutParams
+
+        rootParams.width = dp(180)
+        rootParams.height = dp(50)
+
+        rootButton.layoutParams =
+            rootParams
+
         rootButton.setOnClickListener {
+            rootButton.isEnabled = false
+
             if (serviceActive) {
                 ring.animateProgress(
                     0f,
@@ -886,8 +922,6 @@ class MainActivity : Activity() {
                     showRoot()
                 }
             } else {
-                rootButton.isEnabled = false
-
                 ring.animateProgress(
                     100f,
                     1200L
@@ -898,14 +932,6 @@ class MainActivity : Activity() {
                 }
             }
         }
-
-        page.addView(
-            rootButton,
-            LinearLayout.LayoutParams(
-                dp(180),
-                dp(50)
-            )
-        )
 
         space(page, 14)
 
@@ -921,7 +947,8 @@ class MainActivity : Activity() {
         serviceStatus.textSize = 12f
         serviceStatus.setTextColor(gray)
         serviceStatus.gravity = Gravity.CENTER
-        serviceStatus.typeface = Typeface.MONOSPACE
+        serviceStatus.typeface =
+            Typeface.MONOSPACE
 
         page.addView(
             serviceStatus,
@@ -960,8 +987,11 @@ class MainActivity : Activity() {
         infoRow(
             info,
             "unlockr",
-            if (serviceActive) "active"
-            else "inactive"
+            if (serviceActive) {
+                "active"
+            } else {
+                "inactive"
+            }
         )
 
         infoRow(
@@ -973,8 +1003,11 @@ class MainActivity : Activity() {
         infoRow(
             info,
             "shell",
-            if (shellActive) "active"
-            else "inactive"
+            if (shellActive) {
+                "active"
+            } else {
+                "inactive"
+            }
         )
 
         page.addView(
@@ -987,13 +1020,7 @@ class MainActivity : Activity() {
 
         scroll.addView(page)
 
-        content.addView(
-            scroll,
-            FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
-        )
+        addPage(scroll)
     }
 
     private fun showAuthorizations() {
@@ -1055,13 +1082,7 @@ class MainActivity : Activity() {
 
         scroll.addView(page)
 
-        content.addView(
-            scroll,
-            FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
-        )
+        addPage(scroll)
     }
 
     private fun authorizationApp(
@@ -1111,17 +1132,29 @@ class MainActivity : Activity() {
         val grant = Button(this)
 
         grant.text =
-            if (authorized) "REVOKE"
-            else "GRANT"
+            if (authorized) {
+                "REVOKE"
+            } else {
+                "GRANT"
+            }
 
         grant.textSize = 10f
+
         grant.setTextColor(
-            if (authorized) white else black
+            if (authorized) {
+                white
+            } else {
+                black
+            }
         )
 
         grant.setBackgroundColor(
             if (authorized) {
-                Color.rgb(35, 35, 35)
+                Color.rgb(
+                    35,
+                    35,
+                    35
+                )
             } else {
                 white
             }
@@ -1132,16 +1165,27 @@ class MainActivity : Activity() {
                 grant.text.toString() == "GRANT"
 
             grant.text =
-                if (granting) "REVOKE"
-                else "GRANT"
+                if (granting) {
+                    "REVOKE"
+                } else {
+                    "GRANT"
+                }
 
             grant.setTextColor(
-                if (granting) white else black
+                if (granting) {
+                    white
+                } else {
+                    black
+                }
             )
 
             grant.setBackgroundColor(
                 if (granting) {
-                    Color.rgb(35, 35, 35)
+                    Color.rgb(
+                        35,
+                        35,
+                        35
+                    )
                 } else {
                     white
                 }
@@ -1259,8 +1303,10 @@ class MainActivity : Activity() {
         custom.setHintTextColor(gray)
         custom.setTextColor(white)
         custom.textSize = 12f
-        custom.typeface = Typeface.MONOSPACE
+        custom.typeface =
+            Typeface.MONOSPACE
         custom.setSingleLine(true)
+
         custom.setPadding(
             dp(12),
             0,
@@ -1269,7 +1315,11 @@ class MainActivity : Activity() {
         )
 
         custom.setBackgroundColor(
-            Color.rgb(20, 20, 20)
+            Color.rgb(
+                20,
+                20,
+                20
+            )
         )
 
         ledBox.addView(
@@ -1289,20 +1339,27 @@ class MainActivity : Activity() {
             )
 
         customButton.setOnClickListener {
-            val parts = custom.text
-                .toString()
-                .split(",")
+            val parts =
+                custom.text
+                    .toString()
+                    .split(",")
 
             if (parts.size == 3) {
                 try {
                     val r =
-                        parts[0].trim().toInt()
+                        parts[0]
+                            .trim()
+                            .toInt()
 
                     val g =
-                        parts[1].trim().toInt()
+                        parts[1]
+                            .trim()
+                            .toInt()
 
                     val b =
-                        parts[2].trim().toInt()
+                        parts[2]
+                            .trim()
+                            .toInt()
 
                     stopRainbow()
 
@@ -1340,7 +1397,9 @@ class MainActivity : Activity() {
 
         off.setOnClickListener {
             stopRainbow()
-            ledView?.setLedColor(black)
+            ledView?.setLedColor(
+                black
+            )
         }
 
         page.addView(
@@ -1370,7 +1429,9 @@ class MainActivity : Activity() {
             )
 
         verbose.setOnClickListener {
-            toast("verbose boot requested")
+            toast(
+                "verbose boot requested"
+            )
         }
 
         space(page, 7)
@@ -1382,18 +1443,14 @@ class MainActivity : Activity() {
             )
 
         reboot.setOnClickListener {
-            toast("reboot requested")
+            toast(
+                "reboot requested"
+            )
         }
 
         scroll.addView(page)
 
-        content.addView(
-            scroll,
-            FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
-        )
+        addPage(scroll)
     }
 
     private fun setLed(
@@ -1402,6 +1459,7 @@ class MainActivity : Activity() {
         when (color) {
             "red" -> {
                 stopRainbow()
+
                 ledView?.setLedColor(
                     Color.RED
                 )
@@ -1409,6 +1467,7 @@ class MainActivity : Activity() {
 
             "green" -> {
                 stopRainbow()
+
                 ledView?.setLedColor(
                     Color.GREEN
                 )
@@ -1416,6 +1475,7 @@ class MainActivity : Activity() {
 
             "blue" -> {
                 stopRainbow()
+
                 ledView?.setLedColor(
                     Color.BLUE
                 )
@@ -1423,6 +1483,7 @@ class MainActivity : Activity() {
 
             "white" -> {
                 stopRainbow()
+
                 ledView?.setLedColor(
                     Color.WHITE
                 )
@@ -1430,6 +1491,7 @@ class MainActivity : Activity() {
 
             "yellow" -> {
                 stopRainbow()
+
                 ledView?.setLedColor(
                     Color.YELLOW
                 )
@@ -1437,6 +1499,7 @@ class MainActivity : Activity() {
 
             "purple" -> {
                 stopRainbow()
+
                 ledView?.setLedColor(
                     Color.MAGENTA
                 )
@@ -1444,6 +1507,7 @@ class MainActivity : Activity() {
 
             "cyan" -> {
                 stopRainbow()
+
                 ledView?.setLedColor(
                     Color.CYAN
                 )
@@ -1452,6 +1516,7 @@ class MainActivity : Activity() {
             "rainbow" -> {
                 if (rainbowAnimator != null) {
                     stopRainbow()
+
                     ledView?.setLedColor(
                         black
                     )
@@ -1481,7 +1546,8 @@ class MainActivity : Activity() {
 
                 addUpdateListener {
                     val hue =
-                        it.animatedValue as Float
+                        it.animatedValue
+                            as Float
 
                     val color =
                         Color.HSVToColor(
@@ -1504,15 +1570,14 @@ class MainActivity : Activity() {
     }
 
     private fun stopRainbow() {
-        rainbowAnimator?.let {
-            it.cancel()
-        }
-
+        rainbowAnimator?.cancel()
         rainbowAnimator = null
     }
 
     private fun showTerminal() {
         clearPage()
+
+        val scroll = ScrollView(this)
 
         val page = LinearLayout(this)
 
@@ -1561,7 +1626,11 @@ class MainActivity : Activity() {
         terminal.setSingleLine(false)
 
         terminal.setBackgroundColor(
-            Color.rgb(8, 8, 8)
+            Color.rgb(
+                8,
+                8,
+                8
+            )
         )
 
         page.addView(
@@ -1593,7 +1662,11 @@ class MainActivity : Activity() {
         )
 
         command.setBackgroundColor(
-            Color.rgb(18, 18, 18)
+            Color.rgb(
+                18,
+                18,
+                18
+            )
         )
 
         page.addView(
@@ -1606,11 +1679,10 @@ class MainActivity : Activity() {
 
         space(page, 8)
 
-        val run =
-            button(
-                page,
-                "RUN"
-            )
+        val run = button(
+            page,
+            "RUN"
+        )
 
         run.setOnClickListener {
             val cmd =
@@ -1643,19 +1715,20 @@ class MainActivity : Activity() {
                 "status" -> {
                     terminal.append(
                         "unlockr: " +
-                            if (serviceActive)
+                            if (serviceActive) {
                                 "active\n"
-                            else
+                            } else {
                                 "inactive\n"
-
+                            }
                     )
 
                     terminal.append(
                         "shell: " +
-                            if (shellActive)
+                            if (shellActive) {
                                 "active\n"
-                            else
+                            } else {
                                 "inactive\n"
+                            }
                     )
                 }
 
@@ -1679,6 +1752,7 @@ class MainActivity : Activity() {
 
                 "led red" -> {
                     setLed("red")
+
                     terminal.append(
                         "led: red\n"
                     )
@@ -1686,6 +1760,7 @@ class MainActivity : Activity() {
 
                 "led green" -> {
                     setLed("green")
+
                     terminal.append(
                         "led: green\n"
                     )
@@ -1693,6 +1768,7 @@ class MainActivity : Activity() {
 
                 "led blue" -> {
                     setLed("blue")
+
                     terminal.append(
                         "led: blue\n"
                     )
@@ -1724,13 +1800,9 @@ class MainActivity : Activity() {
             command.setText("")
         }
 
-        content.addView(
-            page,
-            FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
-        )
+        scroll.addView(page)
+
+        addPage(scroll)
     }
 
     private fun showSettings() {
@@ -1799,13 +1871,7 @@ class MainActivity : Activity() {
 
         scroll.addView(page)
 
-        content.addView(
-            scroll,
-            FrameLayout.LayoutParams(
-                -1,
-                -1
-            )
-        )
+        addPage(scroll)
     }
 
     private fun settingSwitch(
@@ -1905,10 +1971,11 @@ class MainActivity : Activity() {
         view.typeface =
             Typeface.create(
                 Typeface.MONOSPACE,
-                if (bold)
+                if (bold) {
                     Typeface.BOLD
-                else
+                } else {
                     Typeface.NORMAL
+                }
             )
 
         parent.addView(
@@ -1940,7 +2007,6 @@ class MainActivity : Activity() {
             )
 
         b.setBackgroundColor(white)
-
         b.isAllCaps = false
 
         b.setOnClickListener {
@@ -2031,7 +2097,6 @@ class MainActivity : Activity() {
             Typeface.MONOSPACE
 
         field.setSingleLine(true)
-
         field.setText(value)
 
         field.setPadding(
@@ -2186,7 +2251,6 @@ class MainActivity : Activity() {
                 Paint.Style.STROKE
 
             track.strokeWidth = 7f
-
             track.color =
                 Color.rgb(
                     35,
@@ -2201,7 +2265,8 @@ class MainActivity : Activity() {
                 Paint.Style.STROKE
 
             progress.strokeWidth = 7f
-            progress.color = Color.WHITE
+            progress.color =
+                Color.WHITE
 
             progress.strokeCap =
                 Paint.Cap.ROUND
@@ -2394,7 +2459,6 @@ class MainActivity : Activity() {
             )
 
             if (ledColor != Color.BLACK) {
-
                 paint.color =
                     ledColor
 
@@ -2418,9 +2482,7 @@ class MainActivity : Activity() {
                 )
 
                 paint.clearShadowLayer()
-
             } else {
-
                 paint.color =
                     Color.BLACK
 
