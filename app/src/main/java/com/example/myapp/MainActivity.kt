@@ -20,7 +20,6 @@ class MainActivity : AppCompatActivity() {
 
     private val white = Color.rgb(245, 245, 245)
     private val gray = Color.rgb(145, 145, 145)
-    private val dark = Color.rgb(12, 12, 12)
     private val panel = Color.rgb(20, 20, 20)
     private val line = Color.rgb(38, 38, 38)
 
@@ -46,25 +45,24 @@ class MainActivity : AppCompatActivity() {
         title.text = "unlockr"
         title.textSize = 25f
         title.setTextColor(white)
-        title.typeface = Typeface.create("sans", Typeface.NORMAL)
 
         top.addView(
             title,
             LinearLayout.LayoutParams(0, 55, 1f)
         )
 
-        val menu = TextView(this)
-        menu.text = "☰"
-        menu.textSize = 25f
-        menu.setTextColor(white)
-        menu.gravity = Gravity.CENTER
+        val menuButton = TextView(this)
+        menuButton.text = "☰"
+        menuButton.textSize = 25f
+        menuButton.setTextColor(white)
+        menuButton.gravity = Gravity.CENTER
 
-        menu.setOnClickListener {
+        menuButton.setOnClickListener {
             showMenu()
         }
 
         top.addView(
-            menu,
+            menuButton,
             LinearLayout.LayoutParams(55, 55)
         )
 
@@ -102,12 +100,13 @@ class MainActivity : AppCompatActivity() {
 
         content.removeAllViews()
 
-        view.layoutParams = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
+        content.addView(
+            view,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
         )
-
-        content.addView(view)
     }
 
     private fun showRoot() {
@@ -131,17 +130,13 @@ class MainActivity : AppCompatActivity() {
 
         page.addView(subtitle)
 
-        val space1 = Space(this)
-
         page.addView(
-            space1,
-            LinearLayout.LayoutParams(
-                1,
-                35
-            )
+            Space(this),
+            LinearLayout.LayoutParams(1, 35)
         )
 
         val circle = FrameLayout(this)
+
         circle.layoutParams = LinearLayout.LayoutParams(
             220,
             220
@@ -247,7 +242,6 @@ class MainActivity : AppCompatActivity() {
     ) {
         val row = LinearLayout(this)
         row.orientation = LinearLayout.HORIZONTAL
-        row.gravity = Gravity.CENTER_VERTICAL
 
         val left = TextView(this)
         left.text = name
@@ -311,17 +305,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMenu() {
-        val menu = PopupWindow(
-            this,
-            270,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            true
-        )
-
         val box = LinearLayout(this)
         box.orientation = LinearLayout.VERTICAL
         box.setBackgroundColor(Color.rgb(10, 10, 10))
         box.setPadding(20, 35, 20, 20)
+
+        val menu = PopupWindow(
+            box,
+            270,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            true
+        )
 
         val title = TextView(this)
         title.text = "unlockr"
@@ -331,32 +325,26 @@ class MainActivity : AppCompatActivity() {
 
         box.addView(title)
 
-        addMenuItem(box, "root") {
-            menu.dismiss()
+        addMenuItem(box, menu, "root") {
             showRoot()
         }
 
-        addMenuItem(box, "authorizations") {
-            menu.dismiss()
+        addMenuItem(box, menu, "authorizations") {
             showAuthorizations()
         }
 
-        addMenuItem(box, "tools") {
-            menu.dismiss()
+        addMenuItem(box, menu, "tools") {
             showTools()
         }
 
-        addMenuItem(box, "terminal") {
-            menu.dismiss()
+        addMenuItem(box, menu, "terminal") {
             showTerminal()
         }
 
-        addMenuItem(box, "settings") {
-            menu.dismiss()
+        addMenuItem(box, menu, "settings") {
             showSettings()
         }
 
-        menu.contentView = box
         menu.showAtLocation(
             root,
             Gravity.LEFT or Gravity.TOP,
@@ -367,6 +355,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun addMenuItem(
         box: LinearLayout,
+        menu: PopupWindow,
         text: String,
         action: () -> Unit
     ) {
@@ -378,6 +367,7 @@ class MainActivity : AppCompatActivity() {
         item.setPadding(12, 0, 12, 0)
 
         item.setOnClickListener {
+            menu.dismiss()
             action()
         }
 
@@ -490,8 +480,7 @@ class MainActivity : AppCompatActivity() {
     private fun showTools() {
         val page = makePage("tools")
 
-        val ledTitle = sectionTitle("status led")
-        page.addView(ledTitle)
+        page.addView(sectionTitle("status led"))
 
         val ledStatus = TextView(this)
         ledStatus.text = "LED: off"
@@ -603,7 +592,7 @@ class MainActivity : AppCompatActivity() {
         input.setHintTextColor(gray)
         input.setTextColor(white)
         input.typeface = Typeface.MONOSPACE
-        input.singleLine = true
+        input.setSingleLine(true)
 
         page.addView(
             input,
@@ -773,6 +762,7 @@ class MainActivity : AppCompatActivity() {
         title.setTextColor(white)
         title.typeface = Typeface.DEFAULT_BOLD
         title.setPadding(0, 15, 0, 10)
+
         return title
     }
 }
