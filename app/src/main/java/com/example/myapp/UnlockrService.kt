@@ -9,37 +9,26 @@ import android.os.Build
 import android.os.IBinder
 
 class UnlockrService : Service() {
-
     companion object {
         private const val CHANNEL_ID = "unlockr_service"
         private const val NOTIFICATION_ID = 1001
     }
 
+    private val binder = UnlockrBinder()
+
     override fun onCreate() {
         super.onCreate()
-
         createNotificationChannel()
-
-        startForeground(
-            NOTIFICATION_ID,
-            buildNotification()
-        )
+        startForeground(NOTIFICATION_ID, buildNotification())
     }
 
-    override fun onStartCommand(
-        intent: Intent?,
-        flags: Int,
-        startId: Int
-    ): Int {
-        return START_STICKY
-    }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) =
+        START_STICKY
 
-    override fun onBind(intent: Intent?): IBinder? {
-        return null
-    }
+    override fun onBind(intent: Intent?): IBinder = binder
 
-    private fun buildNotification(): Notification {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    private fun buildNotification(): Notification =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
                 .setContentTitle("unlockr")
                 .setContentText("unlockr service is running")
@@ -54,20 +43,17 @@ class UnlockrService : Service() {
                 .setOngoing(true)
                 .build()
         }
-    }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager =
-                getSystemService(NotificationManager::class.java)
-
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    "Unlockr service",
-                    NotificationManager.IMPORTANCE_LOW
+            getSystemService(NotificationManager::class.java)
+                .createNotificationChannel(
+                    NotificationChannel(
+                        CHANNEL_ID,
+                        "Unlockr service",
+                        NotificationManager.IMPORTANCE_LOW
+                    )
                 )
-            )
         }
     }
 }

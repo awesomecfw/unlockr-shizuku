@@ -1,0 +1,7 @@
+Inside <manifest>:
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+Inside <application>:
+<service
+    android:name=".UnlockrService"
+    android:exported="false" />
